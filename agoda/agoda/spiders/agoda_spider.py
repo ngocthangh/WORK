@@ -1,0 +1,106 @@
+import scrapy
+import json
+from msvcrt import getch
+import csv
+import re
+
+class YelpSpider(scrapy.Spider):
+    name = "agoda"
+    allowed_domains = ["agoda.com"]
+    start_urls = [
+        # 'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064&pagetypeid=103&origin=DK&cid=-1&tag=&gclid=&aid=130243&userId=a45dbc08-94c8-4883-8267-14e589793930&languageId=1&sessionId=fn0s5opvtin15we2ijf5j20s&storefrontId=3&currencyCode=DKK&htmlLanguage=en-us&trafficType=User&cultureInfoName=en-US&checkIn=2017-07-13&checkOut=2017-08-10&los=28&rooms=1&adults=1&children=0&childages=&ckuid=a45dbc08-94c8-4883-8267-14e589793930',
+        'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064&pagetypeid=103&origin=DK&cid=-1&tag=&gclid=&aid=130243&userId=a45dbc08-94c8-4883-8267-14e589793930&languageId=1&sessionId=fn0s5opvtin15we2ijf5j20s&storefrontId=3&currencyCode=DKK&htmlLanguage=en-us&trafficType=User&cultureInfoName=en-US&checkIn=2018-02-15&checkOut=2018-02-16&los=1&rooms=1&adults=2&children=0&childages=&ckuid=a45dbc08-94c8-4883-8267-14e589793930',
+    ]
+    handle_httpstatus_list = [503]
+    # def parse(self, response):
+    #     cr = csv.reader(open(r"D:\Yelp\SVN\trunk\Project\tutorial_Tu\tutorial\spiders\us_postal_codes_revert.csv","r"))
+    #     for row in cr:
+    #         while (row[0][0] == '0'):
+    #             row[0] = row[0][+1:]
+    #         print('$$$$$$$$$$$$$$$$$$$$$$$$$ search: %s $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$' %row[0])
+    #         yelp_url  = "https://www.yelp.com/search?cflt=restaurants&find_loc=%s" % row[0].strip()
+    #         print(yelp_url)
+    #         yield response.follow(yelp_url, self.parseSearchPage)
+
+    # def parseSearchPage(self, response):
+    #     # if response.status == 503:
+    #     #     print('ERROR ON GETTING DATA !!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    #     #     getch()
+    #     page_links = response.css('a.biz-name::attr(href)')
+    #     for href in page_links:
+    #         yield response.follow(href, self.parseDetailPage)
+    #     next_page = response.css('a.next::attr(href)').extract_first()
+    #     if next_page is not None:
+    #         yield response.follow(next_page, callback=self.parseSearchPage)
+        
+    def parse(self, response):
+        # if response.status == 503:
+        #     print('ERROR ON GETTING DATA !!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        #     getch()
+        HOTELS = response.css('ol#hotelListContainer')
+        Hotels = HOTELS.css('li[data-selenium="hotel-item"]')
+        for hotel in Hotels:
+            MediaBox = hotel.css('div.media-box')
+            PriceContainer = hotel.css('div.hotel-price-promo-container')
+            HotelInfo = hotel.css('div.hotel-info')
+
+            YearAwarded = HotelInfo.css('ul.property-info-container li span[data-selenium="hotel-gca"] span.badge-gca-year::text').extract()
+            if len(YearAwarded) > 0:
+                YearAwarded = YearAwarded[0].strip()
+            else:
+                YearAwarded = ''
+
+            Name = HotelInfo.css('ul.property-info-container li h3.hotel-name::text').extract()
+            if len(Name) > 0:
+                Name = Name[0].strip()
+            else:
+                Name = ''
+
+            # Rating = HotelInfo.css('ul.property-info-container li i[data-selenium="hotel-star-rating]::attr(class)').extract()
+            # if len(Rating) > 0:
+            #     if 'ficon-star-1' in Rating:
+            #         Rating = '1'
+            #     elif 'ficon-star-2' in Rating:
+            #         Rating = '2'
+            #     elif 'ficon-star-3' in Rating:
+            #         Rating = '3'
+            #     elif 'ficon-star-4' in Rating:
+            #         Rating = '4'
+            #     elif 'ficon-star-5' in Rating:
+            #         Rating = '5'
+            #     else: Rating = 'Not found'
+            # else:
+            #     Name = ''
+
+            # Address = HotelInfo.css('ul.property-info-container li span.areacity-name span.areacity-name-text::text').extract()
+            # if len(Address) > 0:
+            #     Address = Address[0].strip()
+            # else:
+            #     Address = ''
+
+            # Offers = HotelInfo.css('ul.property-info-container li.freebies-wrapper ol.freebies-container li.freebies-item span.freebies-txt::text').extract()
+
+            # Options = HotelInfo.css('ul.property-info-container li.freebies-wrapper ol.freebies-container li.freebies-item span.freebies-txt::text').extract()
+
+            # ReviewScore = PriceContainer.css('div.hotel-review-container ul.property-review-container li.review-score-container strong.review-score::text').extract()
+            # if len(ReviewScore) > 0:
+            #     ReviewScore = ReviewScore[0].strip()
+            # else:
+            #     ReviewScore = ''
+
+            # ReviewCount = PriceContainer.css('div.hotel-review-container ul.property-review-container li.review-count-container span.review-count::text').extract()
+            # if len(ReviewCount) > 0:
+            #     ReviewCount = ReviewCount[0].strip()
+            # else:
+            #     ReviewCount = ''
+
+            yield {
+                    'Name': Name,
+                    # 'Rating': Rating,
+                    # 'Address': Address,
+                    'YearAwarded': YearAwarded,
+                    # 'ReviewScore': ReviewScore,
+                    # 'ReviewCount': ReviewCount,
+                    # 'Offers': Offers,
+                }
+        
