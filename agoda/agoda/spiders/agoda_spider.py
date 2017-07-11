@@ -44,6 +44,18 @@ class YelpSpider(scrapy.Spider):
             PriceContainer = hotel.css('div.hotel-price-promo-container')
             HotelInfo = hotel.css('div.hotel-info')
 
+            transports = []
+            Transport = MediaBox.css('figure.ssr-media div.transport-badge-container::attr(title)').extract()
+            if len(Transport) > 0:
+                Transport = Transport[0].split('</span>')
+                for i in range(0, len(Transport)):
+                    if i == len(Transport) - 1:
+                        break
+                    items = Transport[i].split('>')
+                    item = items[len(items) - 1]
+                    transports.append(item)
+
+
             YearAwarded = HotelInfo.css('ul.property-info-container li span[data-selenium="hotel-gca"] span.badge-gca-year::text').extract()
             if len(YearAwarded) > 0:
                 YearAwarded = YearAwarded[0].strip()
@@ -56,51 +68,83 @@ class YelpSpider(scrapy.Spider):
             else:
                 Name = ''
 
-            # Rating = HotelInfo.css('ul.property-info-container li i[data-selenium="hotel-star-rating]::attr(class)').extract()
-            # if len(Rating) > 0:
-            #     if 'ficon-star-1' in Rating:
-            #         Rating = '1'
-            #     elif 'ficon-star-2' in Rating:
-            #         Rating = '2'
-            #     elif 'ficon-star-3' in Rating:
-            #         Rating = '3'
-            #     elif 'ficon-star-4' in Rating:
-            #         Rating = '4'
-            #     elif 'ficon-star-5' in Rating:
-            #         Rating = '5'
-            #     else: Rating = 'Not found'
-            # else:
-            #     Name = ''
+            Rating = HotelInfo.css('ul.property-info-container li i[data-selenium="hotel-star-rating"]::attr(class)').extract()
+            if len(Rating) > 0:
+                if 'ficon-star-1' in Rating[0]:
+                    Rating = '1'
+                elif 'ficon-star-2' in Rating[0]:
+                    Rating = '2'
+                elif 'ficon-star-3' in Rating[0]:
+                    Rating = '3'
+                elif 'ficon-star-4' in Rating[0]:
+                    Rating = '4'
+                elif 'ficon-star-5' in Rating[0]:
+                    Rating = '5'
+                else: Rating = ''
+            else:
+                Rating = ''
 
-            # Address = HotelInfo.css('ul.property-info-container li span.areacity-name span.areacity-name-text::text').extract()
-            # if len(Address) > 0:
-            #     Address = Address[0].strip()
-            # else:
-            #     Address = ''
+            Address = HotelInfo.css('ul.property-info-container li span.areacity-name span.areacity-name-text::text').extract()
+            if len(Address) > 0:
+                Address = Address[0].strip()
+            else:
+                Address = ''
 
-            # Offers = HotelInfo.css('ul.property-info-container li.freebies-wrapper ol.freebies-container li.freebies-item span.freebies-txt::text').extract()
+            offers = []
+            Info = HotelInfo.css('ul.property-info-container').xpath('li')
+            if len(Info) > 2:
+                Info3 =  Info[2]
+                Offer = Info3.css('ol.freebies-container::attr(data-original-title)').extract()
+                if len(Offer) > 0:
+                    Offers = Offer[0].split('</span>')
+                    for i in range(0, len(Offers)):
+                        if i == len(Offers) - 1:
+                            break
+                        items = Offers[i].split('>')
+                        item = items[len(items) - 1]
+                        offers.append(item)
 
-            # Options = HotelInfo.css('ul.property-info-container li.freebies-wrapper ol.freebies-container li.freebies-item span.freebies-txt::text').extract()
+            options = []
+            if len(Info) > 3:
+                Info4 =  Info[3]
+                Option = Info4.css('ol.freebies-container::attr(data-original-title)').extract()
+                if len(Option) > 0:
+                    Options = Option[0].split('</span>')
+                    for i in range(0, len(Options)):
+                        if i == len(Options) - 1:
+                            break
+                        items = Options[i].split('>')
+                        item = items[len(items) - 1]
+                        options.append(item)
 
-            # ReviewScore = PriceContainer.css('div.hotel-review-container ul.property-review-container li.review-score-container strong.review-score::text').extract()
-            # if len(ReviewScore) > 0:
-            #     ReviewScore = ReviewScore[0].strip()
-            # else:
-            #     ReviewScore = ''
+            ReviewScore = PriceContainer.css('div.hotel-review-container ul.property-review-container li.review-score-container strong.review-score::text').extract()
+            if len(ReviewScore) > 0:
+                ReviewScore = ReviewScore[0].strip()
+            else:
+                ReviewScore = ''
 
-            # ReviewCount = PriceContainer.css('div.hotel-review-container ul.property-review-container li.review-count-container span.review-count::text').extract()
-            # if len(ReviewCount) > 0:
-            #     ReviewCount = ReviewCount[0].strip()
-            # else:
-            #     ReviewCount = ''
+            ReviewText = PriceContainer.css('div.hotel-review-container ul.property-review-container li.review-score-container strong.review-score-label::text').extract()
+            if len(ReviewText) > 0:
+                ReviewText = ReviewText[0].strip()
+            else:
+                ReviewText = ''
+
+            ReviewCount = PriceContainer.css('div.hotel-review-container ul.property-review-container li.review-count-container span.review-count::text').extract()
+            if len(ReviewCount) > 0:
+                ReviewCount = ReviewCount[0].strip()
+            else:
+                ReviewCount = ''
 
             yield {
                     'Name': Name,
-                    # 'Rating': Rating,
-                    # 'Address': Address,
+                    'Rating': Rating,
+                    'Address': Address,
                     'YearAwarded': YearAwarded,
-                    # 'ReviewScore': ReviewScore,
-                    # 'ReviewCount': ReviewCount,
-                    # 'Offers': Offers,
+                    'ReviewText': ReviewText,
+                    'ReviewScore': ReviewScore,
+                    'ReviewCount': ReviewCount,
+                    'Transports': transports,
+                    'Offers': offers,
+                    'Options': options,
                 }
         
