@@ -28,9 +28,6 @@ class YelpSpider(scrapy.Spider):
     #         yield response.follow(yelp_url, self.parseSearchPage)
         
     def parse(self, response):
-        # def slugify(text):
-        #     text = unidecode.unidecode(text).lower()
-        #     return re.sub(r'\W+', '-', text)
         HOTELS = response.css('ol#hotelListContainer')
         Hotels = HOTELS.css('li[data-selenium="hotel-item"]')
         for hotel in Hotels:
@@ -133,29 +130,21 @@ class YelpSpider(scrapy.Spider):
 
             DetailLink = 'https://www.agoda.com/' + slugify(Name) + '/hotel/singapore-sg.html'
             
-            # yield response.follow(DetailLink, callback=self.parseDetailPage, meta={
-            #                                                                 'Name': Name,
-            #                                                                 'Rating': Rating,
-            #                                                                 'Address': Address,
-            #                                                                 'YearAwarded': YearAwarded,
-            #                                                                 'ReviewText': ReviewText,
-            #                                                                 'ReviewScore': ReviewScore,
-            #                                                                 'ReviewCount': ReviewCount,
-            #                                                                 'Transports': transports,
-            #                                                                 'Offers': offers,
-            #                                                                 'Options': OPS,
-            #                                                             })
-            #         
-        formdata = {
-                    'PageNumber':'3',
-                    'CityId': '4064',
-                    'SearchType': '1',
-                    'CountryId': '0'
-                    }                                                   
-        yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', formdata = formdata, callback=self.myParse, method='POST')
-    def myParse(self, response):
-        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
-        inspect_response(response, self)
+            yield response.follow(DetailLink, callback=self.parseDetailPage, meta={
+                                                                            'Name': Name,
+                                                                            'Rating': Rating,
+                                                                            'Address': Address,
+                                                                            'YearAwarded': YearAwarded,
+                                                                            'ReviewText': ReviewText,
+                                                                            'ReviewScore': ReviewScore,
+                                                                            'ReviewCount': ReviewCount,
+                                                                            'Transports': transports,
+                                                                            'Offers': offers,
+                                                                            'Options': OPS,
+                                                                        })
+                    
+        
+        
     def parseDetailPage(self, response):
         def getItem(script, key):
             key1 = key + ': {'
