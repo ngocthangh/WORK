@@ -6,6 +6,9 @@ import re
 from slugify import slugify
 from scrapy.shell import inspect_response
 from scrapy.http import FormRequest
+from dateutil import parser
+import time
+from langdetect import detect
 
 REVIEW_PER_PAGE = 10
 
@@ -120,12 +123,24 @@ class YelpSpider(scrapy.Spider):
                     ReviewDate = ReviewDate[1].strip()
             else:
                 ReviewDate = ''
-
+            parser.parserinfo(dayfirst=True) 
+            dateTimeStamp = parser.parse(ReviewDate)
+            dateTimeStamp = int(time.mktime(dateTimeStamp.timetuple()))
+            Language = ''
+            try:
+                if(ReviewText != ''):
+                    Language = detect(ReviewText)
+                pass
+            except Exception as e:
+                print('Can not detect language!')
+                
             hotelId = response.meta['hotelId']
             yield{
                     'Review Title': ReviewTitle,
                     'Text': ReviewText,
+                    'Language': Language,
                     'Date': ReviewDate,
+                    'Date Timestamp': dateTimeStamp,
                     'ProductId': hotelId,
                     'Review Score': reScore,
                     'Reviewer Name': reviewerName,
