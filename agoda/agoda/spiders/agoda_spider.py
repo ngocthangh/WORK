@@ -11,9 +11,10 @@ class YelpSpider(scrapy.Spider):
     name = "agoda"
     allowed_domains = ["agoda.com"]
     start_urls = [
-        # 'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064&pagetypeid=103&origin=DK&cid=-1&tag=&gclid=&aid=130243&userId=a45dbc08-94c8-4883-8267-14e589793930&languageId=1&sessionId=fn0s5opvtin15we2ijf5j20s&storefrontId=3&currencyCode=DKK&htmlLanguage=en-us&trafficType=User&cultureInfoName=en-US&checkIn=2017-07-13&checkOut=2017-08-10&los=28&rooms=1&adults=1&children=0&childages=&ckuid=a45dbc08-94c8-4883-8267-14e589793930',
-        # 'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064&pagetypeid=103&origin=DK&cid=-1&tag=&gclid=&aid=130243&userId=a45dbc08-94c8-4883-8267-14e589793930&languageId=1&sessionId=fn0s5opvtin15we2ijf5j20s&storefrontId=3&currencyCode=DKK&htmlLanguage=en-us&trafficType=User&cultureInfoName=en-US&checkIn=2018-02-15&checkOut=2018-02-16&los=1&rooms=1&adults=2&children=0&childages=&ckuid=a45dbc08-94c8-4883-8267-14e589793930',
+        'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064&pagetypeid=103&origin=DK&cid=-1&tag=&gclid=&aid=130243&userId=a45dbc08-94c8-4883-8267-14e589793930&languageId=1&sessionId=fn0s5opvtin15we2ijf5j20s&storefrontId=3&currencyCode=DKK&htmlLanguage=en-us&trafficType=User&cultureInfoName=en-US&checkIn=2017-07-13&checkOut=2017-08-10&los=28&rooms=1&adults=1&children=0&childages=&ckuid=a45dbc08-94c8-4883-8267-14e589793930',
+        'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064&pagetypeid=103&origin=DK&cid=-1&tag=&gclid=&aid=130243&userId=a45dbc08-94c8-4883-8267-14e589793930&languageId=1&sessionId=fn0s5opvtin15we2ijf5j20s&storefrontId=3&currencyCode=DKK&htmlLanguage=en-us&trafficType=User&cultureInfoName=en-US&checkIn=2018-02-15&checkOut=2018-02-16&los=1&rooms=1&adults=2&children=0&childages=&ckuid=a45dbc08-94c8-4883-8267-14e589793930',
         'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064',
+        'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064&pagetypeid=103&origin=VN&cid=-1&tag=&gclid=&aid=130243&userId=63298666-127d-4bdb-9a86-8c5cebd1d002&languageId=1&sessionId=gboizgbattkxku2rwguqlhbp&storefrontId=3&currencyCode=DKK&htmlLanguage=en-us&trafficType=User&cultureInfoName=en-US&checkIn=2017-08-15&checkOut=2017-08-16&los=1&rooms=1&adults=2&children=0&childages=&ckuid=63298666-127d-4bdb-9a86-8c5cebd1d002&sort=agodaRecommended&PageNumber=5',
 
     ]
     handle_httpstatus_list = [503]
@@ -30,7 +31,13 @@ class YelpSpider(scrapy.Spider):
     def parse(self, response):
         HOTELS = response.css('ol#hotelListContainer')
         Hotels = HOTELS.css('li[data-selenium="hotel-item"]')
+
         for hotel in Hotels:
+            Id = hotel.css('::attr(data-hotelid)').extract()
+            if len(Id) > 0:
+                Id = Id[0].strip()
+            else:
+                Id = ''
             MediaBox = hotel.css('div.media-box')
             PriceContainer = hotel.css('div.hotel-price-promo-container')
             HotelInfo = hotel.css('div.hotel-info')
@@ -141,6 +148,7 @@ class YelpSpider(scrapy.Spider):
                                                                             'Transports': transports,
                                                                             'Offers': offers,
                                                                             'Options': OPS,
+                                                                            'Id': Id,
                                                                         })
                     
         
@@ -182,8 +190,18 @@ class YelpSpider(scrapy.Spider):
         else:
             Script = ''
         Address = getItem(Script,'address')
-        Address = getValue(Address1, 'full')
+        Address = getValue(Address, 'full')
 
+        Latitude = response.css('meta[property="og:latitude"]::attr(content)').extract()
+        if len(Latitude) > 0:
+            Latitude = Latitude[0].strip()
+        else:
+            Latitude = ''
+        Longitude = response.css('meta[property="og:longitude"]::attr(content)').extract()
+        if len(Longitude) > 0:
+            Longitude = Longitude[0].strip()
+        else:
+            Longitude = ''
 
         Name = response.meta['Name']
         Rating = response.meta['Rating']
@@ -196,14 +214,16 @@ class YelpSpider(scrapy.Spider):
         Options = response.meta['Options']
         yield{
                 'Name': Name,
+                'Id': response.meta['Id'], 
                 'Rating': Rating,
                 'Address': Address,
                 'YearAwarded': YearAwarded,
                 'ReviewText': ReviewText,
-                'ReviewScore': ReviewScore,
-                'ReviewCount': ReviewCount,
-                'Transports': Transports,
-                'Offers': Offers,
+                'Review Score': ReviewScore,
+                'Review Count': ReviewCount,
+                'Transportation': Transports,
+                'Most popular facilities': Offers,
                 'Options': Options,
                 'Link': response.request.url,
+                'Location': Latitude + ',' + Longitude
             }
