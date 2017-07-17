@@ -9,9 +9,10 @@ from scrapy.http import FormRequest
 from dateutil import parser
 import time
 from langdetect import detect
-# from selenium import webdriver
-# from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
-# from pyvirtualdisplay import Display
+from selenium import webdriver
+from scrapy.http import TextResponse
+from scrapy.selector import Selector
+
 
 REVIEW_PER_PAGE = 10
 
@@ -25,12 +26,13 @@ class YelpSpider(scrapy.Spider):
     ]
     handle_httpstatus_list = [503]
     
-    # def __init__(self):
-        # capabilities = webdriver.DesiredCapabilities().FIREFOX
-        # capabilities["marionette"] = False
-        # binary = FirefoxBinary(r'C:\Python34\selenium\webdriver\firefox\amd64\geckodriver.exe')
-        # self.driver = webdriver.Remote("http://127.0.0.1:4444", capabilities)
+    def __init__(self):
+        capabilities = webdriver.DesiredCapabilities().FIREFOX
+        capabilities["marionette"] = False
+        # binary = r'C:\Python34\selenium\webdriver\firefox\amd64\geckodriver.exe'
+        # self.driver = webdriver.Remote("http://127.0.0.1:4444")
         # self.driver = webdriver.Chrome()
+        self.driver = webdriver.Firefox(r'C:\Python34\selenium\webdriver\firefox\amd64')
         # self.driver.get('http://www.google.com')
         # binary = FirefoxBinary(r'C:\Program Files\Mozilla Firefox\firefox.exe')
         # browser = webdriver.Firefox(firefox_binary=binary)
@@ -38,132 +40,161 @@ class YelpSpider(scrapy.Spider):
     def parse(self, response):
         # hotelId = 254056
         # hotelId = 109878
-        # parseListHotel(response)
-        # self.driver.get(response.request.url)
-        # self.driver.implicitly_wait(5)
+        # inspect_response(response, self)
+        # return self.parseListPageOne(response)
+        HOTELS = response.css('ol#hotelListContainer')
+        Hotels = HOTELS.css('li[data-selenium="hotel-item"]')
+        for hotel in Hotels:
+            hotelId = hotel.css('::attr(data-hotelid)').extract()
+            if len(hotelId) > 0:
+                hotelId = hotelId[0].strip()
+                yield{'hotelid': hotelId}
+                # payload = {"hotelId": str(hotelId),"page":'1',"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
+                # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId, 'dr':dr})
+        
+        self.driver.get(response.request.url)
+        self.driver.implicitly_wait(5)
 
-        # while True:
-        #     next = self.driver.find_element_by_css('button#paginationNext')
-        #     try:
-        #         next.click()
-        #         # get the data and write it to scrapy items
-        #         parseListHotel(response)
-        #     except:
-        #         break
-        # self.driver.close()
+        while True:
+            next = self.driver.find_element_by_id('paginationNext')
+            try:
+                next.click()
+                # self.driver.implicitly_wait(10)
+                # self.driver.manage().timeouts().pageLoadTimeout(5, TimeUnit.SECONDS);
+                # get the data and write it to scrapy items
+                print('11111111111111111111111111111111111111111111111111111')
+                # res = HtmlResponse(self.driver.current_url, body=self.driver.page_source, encoding='utf-8')
+                print('22222222222222222222222222222222222222222222222222222')
+                # self.parseListHotel(res)
+                HOTELS = Selector(text=self.driver.page_source).css('ol#hotelListContainer')
+                Hotels = HOTELS.css('li[data-selenium="hotel-item"]')
+                for hotel in Hotels:
+                    hotelId = hotel.css('::attr(data-hotelid)').extract()
+                    if len(hotelId) > 0:
+                        hotelId = hotelId[0].strip()
+                        yield{'hotelid': hotelId}
+                        # payload = {"hotelId": str(hotelId),"page":'1',"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
+                        # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId, 'dr':dr})
+            except:
+                break
+            # finally:
+            # self.driver.close()
 
-        payload = {
-"SearchMessageID":"bb55721a-02be-4c8f-bfa8-e9b1cd959bff",
-"IsPollDmc":"false",
-"SearchType":"1",
-"ObjectID":"0",
-"Filters[HotelName]":"",
-"Filters[PriceRange][Min]":"0",
-"Filters[PriceRange][Max]":"0",
-"Filters[PriceRange][IsHavePriceFilterQueryParamter]":"false",
-"Filters[ReviewScoreMin]":"5",
-"Filters[Size]":"0",
-"RateplanIDs":"",
-"TotalHotels":"411",
-"PlatformID":"1001",
-"CurrentDate":"2017-07-13T08:01:03.0146706+07:00",
-"SearchID":"991110713080103000",
-"CityId":"4064",
-"Latitude":"0",
-"Longitude":"0",
-"Radius":"0",
-"RectangleSearchParams":"",
-"PageNumber":"2",
-"PageSize":"45",
-"SortType":"0",
-"IsSortChanged":"false",
-"SortByAsd":"false",
-"ReviewTravelerType":"0",
-"PointsMaxProgramId":"0",
-"PollTimes":"0",
-"MaxPollTimes":"0",
-"CityName":"Singapore",
-"ObjectName":"Singapore",
-"AddressName":"",
-"CountryName":"Singapore",
-"CountryId":"114",
-"IsAllowYesterdaySearch":"false",
-"CultureInfo":"en-US",
-"UnavailableHotelId":"0",
-"IsEnableAPS":"false",
-"AdditionalExperiments[PRIUS]":"1008617",
-"SeletedHotelId":"0",
-"HasFilter":"false",
-"LandingParameters[HeaderBannerUrl]":"",
-"LandingParameters[FooterBannerUrl]":"",
-"LandingParameters[SelectedHotelId]":"0",
-"LandingParameters[LandingCityID]":"0",
-"NewSSRSearchType":"0",
-"IsWysiwyp":"false",
-"RequestPriceView":"",
-"FinalPriceView":"1",
-"MapType":"1",
-"IsShowMobileAppPrice":"false",
-"IsApsPeek":"false",
-"IsRetailPeek":"false",
-"IsRetina":"false",
-"CheckInCultureDateText":"7/21/2017",
-"CheckOutCultureDateText":"7/22/2017",
-"IsCriteriaDatesChanged":"false",
-"TotalHotelsFormatted":"411",
-"PreviewRoomFinalPrice":"",
-"ReferrerUrl":"",
-"CountryEnglishName":"Singapore",
-"CityEnglishName":"Singapore",
-"Adults":"1",
-"Children":"0",
-"Rooms":"1",
-"CheckIn":"2017-07-21T00:00:00",
-"LengthOfStay":"1",
-"ChildAgesStr":"",
-"Text":"Singapore",
-"ExtraText":"",
-"IsDateless":"false",
-}
-        header = {'content-type':'application/json'}
-        yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', formdata = payload, headers = header, callback=self.parseCommentNum, method='POST')
+        
+#         header = {"Content-Type":"application/json"}
+#         payload = {
+# "SearchMessageID":'5b681ba1-fa45-429d-9d0e-7c62cbfe1448',
+# "IsPollDmc":'false',
+# "SearchType":'1',
+# "ObjectID":'0',
+# "Filters[HotelName]":'',
+# "Filters[PriceRange][Min]":'0',
+# "Filters[PriceRange][Max]":'0',
+# "Filters[PriceRange][IsHavePriceFilterQueryParamter]":'false',
+# "Filters[ReviewScoreMin]":'0',
+# "Filters[Size]":'0',
+# "RateplanIDs":'',
+# "TotalHotels":'413',
+# "PlatformID":'1001',
+# "CurrentDate":'2017-07-14T09:12:40.5268178+07:00',
+# "SearchID":'991110714091240600',
+# "CityId":'4064',
+# "Latitude":'0',
+# "Longitude":'0',
+# "Radius":'0',
+# "RectangleSearchParams":'',
+# "PageNumber":'3',
+# "PageSize":'45',
+# "SortType":'0',
+# "IsSortChanged":'false',
+# "SortByAsd":'false',
+# "ReviewTravelerType":'0',
+# "PointsMaxProgramId":'0',
+# "PollTimes":'0',
+# "MaxPollTimes":'0',
+# "CityName":'Singapore',
+# "ObjectName":'Singapore',
+# "AddressName":'',
+# "CountryName":'Singapore',
+# "CountryId":'114',
+# "IsAllowYesterdaySearch":'false',
+# "CultureInfo":'en-US',
+# "UnavailableHotelId":'0',
+# "IsEnableAPS":'false',
+# "AdditionalExperiments[PRIUS]":'1008617',
+# "SeletedHotelId":'0',
+# "HasFilter":'false',
+# "LandingParameters[HeaderBannerUrl]":'',
+# "LandingParameters[FooterBannerUrl]":'',
+# "LandingParameters[SelectedHotelId]":'0',
+# "LandingParameters[LandingCityID]":'0',
+# "NewSSRSearchType":'0',
+# "IsWysiwyp":'false',
+# "RequestPriceView":'',
+# "FinalPriceView":'1',
+# "MapType":'1',
+# "IsShowMobileAppPrice":'false',
+# "IsApsPeek":'false',
+# "IsRetailPeek":'false',
+# "IsRetina":'false',
+# "CheckInCultureDateText":'8/15/2017',
+# "CheckOutCultureDateText":'8/16/2017',
+# "IsCriteriaDatesChanged":'false',
+# "TotalHotelsFormatted":'413',
+# "PreviewRoomFinalPrice":'',
+# "ReferrerUrl":'',
+# "CountryEnglishName":'Singapore',
+# "CityEnglishName":'Singapore',
+# "Adults":'2',
+# "Children":'0',
+# "Rooms":'1',
+# "CheckIn":'2017-08-15T00:00:00',
+# "LengthOfStay":'1',
+# "ChildAgesStr":'',
+# "Text":'Singapore',
+# "ExtraText":'',
+# "IsDateless":'false',
+# }
+#         yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', method='POST', headers = header, formdata = payload, callback=self.parseCommentNum)
     
-    def parseListHotel(response):
-        inspect_response(response, self)
-        # HOTELS = response.css('ol#hotelListContainer')
-        # Hotels = HOTELS.css('li[data-selenium="hotel-item"]')
-        # for hotel in Hotels:
-        #     hotelId = hotel.css('::attr(data-hotelid)').extract()
-        #     if len(hotelId) > 0:
-        #         hotelId = hotelId[0].strip()
-        #         payload = {"hotelId": str(hotelId),"page":'1',"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
-        #         yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId})
+    
             
-
+    def parseListHotel(self, response):
+        # inspect_response(response, self)
+        HOTELS = response.css('ol#hotelListContainer')
+        Hotels = HOTELS.css('li[data-selenium="hotel-item"]')
+        for hotel in Hotels:
+            hotelId = hotel.css('::attr(data-hotelid)').extract()
+            if len(hotelId) > 0:
+                hotelId = hotelId[0].strip()
+                yield{'hotelid': hotelId}
+                # payload = {"hotelId": str(hotelId),"page":'1',"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
+                # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId, 'dr':dr})
     def parseCommentNum(self, response):
-        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
-        inspect_response(response, self)
-        # Body = response.css('div#hotelreview-detail-item')
-        # hotelId = response.meta['hotelId']
-        # pageText = Body.css('div.review-comments-count span::text').extract()
-        # print('############# Page: %s' %pageText)
-        # if len(pageText) > 0: 
-        #     text = pageText[0].split('Showing')
-        #     if len(text) > 1:
-        #         text1 = text[1].split('verified')
-        #         if len(text1) > 0:
-        #             result = text1[0].strip()
-        #             reviewNumber = int(result)
-        #             print('################# Review Number: %s' %str(reviewNumber))
-        #             pageNumber = reviewNumber / REVIEW_PER_PAGE
-        #             if reviewNumber % REVIEW_PER_PAGE > 0:
-        #                 pageNumber += 1
-        #             print('################# Page Number: %s' %str(pageNumber))
-        #             for i in range(1, pageNumber + 1):
-        #                 # if i > 3:
-        #                 #     break
-        #                 payload = {"hotelId": str(hotelId),"page":str(i),"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
-        #                 yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':hotelId, 'page':i})
+        # print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
+        # inspect_response(response, self)
+        dr = response.meta['dr']
+        Body = dr.find_element_by_css_selector('div#hotelreview-detail-item')
+        hotelId = response.meta['hotelId']
+        pageText = Body.css('div.review-comments-count span::text').extract()
+        print('############# Page: %s' %pageText)
+        if len(pageText) > 0: 
+            text = pageText[0].split('Showing')
+            if len(text) > 1:
+                text1 = text[1].split('verified')
+                if len(text1) > 0:
+                    result = text1[0].strip()
+                    reviewNumber = int(result)
+                    print('################# Review Number: %s' %str(reviewNumber))
+                    pageNumber = reviewNumber / REVIEW_PER_PAGE
+                    if reviewNumber % REVIEW_PER_PAGE > 0:
+                        pageNumber += 1
+                    print('################# Page Number: %s' %str(pageNumber))
+                    for i in range(1, pageNumber + 1):
+                        # if i > 3:
+                        #     break
+                        payload = {"hotelId": str(hotelId),"page":str(i),"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
+                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':hotelId, 'page':i})
     def parseComment(self, response):
         Body = response.css('div#hotelreview-detail-item')
 
