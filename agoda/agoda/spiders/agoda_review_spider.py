@@ -12,6 +12,8 @@ from langdetect import detect
 from selenium import webdriver
 from scrapy.http import TextResponse
 from scrapy.selector import Selector
+import time
+
 
 
 REVIEW_PER_PAGE = 10
@@ -38,6 +40,7 @@ class YelpSpider(scrapy.Spider):
         # browser = webdriver.Firefox(firefox_binary=binary)
 
     def parse(self, response):
+
         # hotelId = 254056
         # hotelId = 109878
         # inspect_response(response, self)
@@ -48,37 +51,45 @@ class YelpSpider(scrapy.Spider):
             hotelId = hotel.css('::attr(data-hotelid)').extract()
             if len(hotelId) > 0:
                 hotelId = hotelId[0].strip()
-                yield{'hotelid': hotelId}
-                # payload = {"hotelId": str(hotelId),"page":'1',"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
-                # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId, 'dr':dr})
+                # yield{'hotelid': hotelId}
+                payload = {"hotelId": str(hotelId),"page":'1',"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
+                yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId})
         
         self.driver.get(response.request.url)
         self.driver.implicitly_wait(5)
 
         while True:
             next = self.driver.find_element_by_id('paginationNext')
+            
             try:
+                # print('11111111111111111111111111111111111111111111111111111')
+                # time.sleep(2)
+                # print('22222222222222222222222222222222222222222222222222222')
                 next.click()
+                print('3333333333333333333333333333333333333333333333333333333')
+                time.sleep(5)
+                print('4444444444444444444444444444444444444444444444444444444')
                 # self.driver.implicitly_wait(10)
                 # self.driver.manage().timeouts().pageLoadTimeout(5, TimeUnit.SECONDS);
                 # get the data and write it to scrapy items
-                print('11111111111111111111111111111111111111111111111111111')
+                
                 # res = HtmlResponse(self.driver.current_url, body=self.driver.page_source, encoding='utf-8')
-                print('22222222222222222222222222222222222222222222222222222')
+                
                 # self.parseListHotel(res)
+                # self.driver.implicitly_wait(10)
+                
                 HOTELS = Selector(text=self.driver.page_source).css('ol#hotelListContainer')
                 Hotels = HOTELS.css('li[data-selenium="hotel-item"]')
                 for hotel in Hotels:
                     hotelId = hotel.css('::attr(data-hotelid)').extract()
                     if len(hotelId) > 0:
                         hotelId = hotelId[0].strip()
-                        yield{'hotelid': hotelId}
-                        # payload = {"hotelId": str(hotelId),"page":'1',"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
-                        # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId, 'dr':dr})
+                        # yield{'hotelid': hotelId}
+                        payload = {"hotelId": str(hotelId),"page":'1',"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
+                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId})
             except:
-                break
-            # finally:
-            # self.driver.close()
+                self.driver.close()
+                break 
 
         
 #         header = {"Content-Type":"application/json"}
@@ -169,12 +180,11 @@ class YelpSpider(scrapy.Spider):
                 hotelId = hotelId[0].strip()
                 yield{'hotelid': hotelId}
                 # payload = {"hotelId": str(hotelId),"page":'1',"sorting":'1',"isReviewPage":'false',"isCrawlablePage":'true',"filters":{"language":[],"room":[]}}
-                # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId, 'dr':dr})
+                # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseCommentNum, method='POST', meta = {'hotelId':hotelId})
     def parseCommentNum(self, response):
         # print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
         # inspect_response(response, self)
-        dr = response.meta['dr']
-        Body = dr.find_element_by_css_selector('div#hotelreview-detail-item')
+        Body = response.css('div#hotelreview-detail-item')
         hotelId = response.meta['hotelId']
         pageText = Body.css('div.review-comments-count span::text').extract()
         print('############# Page: %s' %pageText)
