@@ -28,18 +28,21 @@ class YelpSpider(scrapy.Spider):
     ]
     handle_httpstatus_list = [503]
     
-    def __init__(self):
-        capabilities = webdriver.DesiredCapabilities().FIREFOX
-        capabilities["marionette"] = False
-        # binary = r'C:\Python34\selenium\webdriver\firefox\amd64\geckodriver.exe'
-        # self.driver = webdriver.Remote("http://127.0.0.1:4444")
-        # self.driver = webdriver.Chrome()
-        self.driver = webdriver.Firefox(r'C:\Python34\selenium\webdriver\firefox\amd64')
-        # self.driver.get('http://www.google.com')
-        # binary = FirefoxBinary(r'C:\Program Files\Mozilla Firefox\firefox.exe')
-        # browser = webdriver.Firefox(firefox_binary=binary)
-
+    # def __init__(self):
+    #     capabilities = webdriver.DesiredCapabilities().FIREFOX
+    #     capabilities["marionette"] = False
+    #     self.driver = webdriver.Firefox(r'C:\Python34\selenium\webdriver\firefox\amd64')
+    
     def parse(self, response):
+        for i in range(10000, 100001):
+            yield FormRequest('https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=%s' %i, callback=self.parseTest, meta={'id':i})
+    def parseTest(self, response):
+        text = response.css('div#searchlist-header h1::text').extract_first().strip()
+        if '0 available properties' not in text:
+            yield{  'id': response.meta['id'],
+                'text': text,
+            }
+    def parse1(self, response):
 
         # hotelId = 254056
         # hotelId = 109878
