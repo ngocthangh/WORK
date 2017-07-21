@@ -14,14 +14,38 @@ from scrapy.selector import Selector
 import time
 
 
-
-REVIEW_PER_PAGE = 10
+CONFIG = []
+REVIEW_PER_PAGE = 50
+"""
+1: English
+2: Français        (France)
+3: Deutsch         (Germany)
+5: Español         (Tây Ban Nha)
+6: 日本語          (Japan)
+7: 繁體中文 (香港) (Hong Kong)
+8: 简体中文
+9: 한국어
+11: Русский
+20: 繁體中文 (台灣) (Đài Loan)
+26: Bahasa Indonesia
+22: ภาษาไทย         (ThaiLan)
+24: Tiếng Việt
+39: עברית           (Do Thái)
+"""
+# LANGUAGE = [1,2,7,8,20]
+LANGUAGE = '[20]'
 HEADER = """Accept: application/json, text/javascript, */*; q=0.01
 Accept-Language: vi-VN,vi;q=0.8,en-US;q=0.5,en;q=0.3
 Accept-Encoding: gzip, deflate, br
 Content-Type: application/x-www-form-urlencoded; charset=UTF-8
 X-Requested-With: XMLHttpRequest"""
-
+HEADER_REVIEW = """Host: www.agoda.com
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:43.0) Gecko/20100101 Firefox/43.0
+Accept: text/html, */*; q=0.01
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Content-Type: application/json; charset=utf-8
+X-Requested-With: XMLHttpRequest"""
 class YelpSpider(scrapy.Spider):
     name = "agodareview"
     allowed_domains = ["agoda.com"]
@@ -31,6 +55,17 @@ class YelpSpider(scrapy.Spider):
         'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064',
     ]
     handle_httpstatus_list = [503]
+
+    def readConfiguration(self):
+        file = open('agoda/config', "r") 
+        for line in file: 
+            print (line)
+            p = line.split('=')
+            if len(p) > 1:
+                if int(p[1].strip()) != 0:
+                    CONFIG.append(p[0].strip())
+        print (CONFIG)
+
 
     def parseTest(self, response):
         text = response.css('div#searchlist-header h1::text').extract_first().strip()
@@ -49,6 +84,7 @@ class YelpSpider(scrapy.Spider):
         data = data[:-1] + ' }'
         return json.loads(data)
     def parse(self, response):
+        # return self.readConfiguration()
         with open('test.csv') as csvfile:
             cities = csv.reader(csvfile, quotechar='"', delimiter=',',
                          quoting=csv.QUOTE_ALL, skipinitialspace=True)
@@ -65,13 +101,16 @@ class YelpSpider(scrapy.Spider):
         page = Result['PageNumber']
         cityId = Result['SearchCriteria']['CityId']
         listHotel = Result['ResultList']
+        print('-----------Get %s hotel' %str(len(listHotel)))
         for hotel in listHotel:
             hotelId = hotel['HotelID']
             Name = hotel['EnglishHotelName']
-            DetailLink = 'https://www.agoda.com/' + slugify(Name) + '/hotel/singapore-sg.html'
+            # DetailLink = 'https://www.agoda.com/' + slugify(Name) + '/hotel/singapore-sg.html'
             # yield{'hotelId': hotelId}
-            payload = {"hotelId": str(hotelId),"page":'1', "pageSize":'10',"sorting":'1',"filters":{"language":[],"room":[]}}
-            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId),'DetailLink': DetailLink})
+            # payload = {"hotelId": str(hotelId),"page":'1', "pageSize":'1',"sorting":'1',"filters":{"language":[],"room":[]}}
+            body = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":1,"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
+            header = self.getJson(HEADER_REVIEW, '\n', ':')
+            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId)})
         for i in range(2, totalPage + 1):
             header = self.getJson(HEADER, '\n', ':')
             data0 = "SearchType=1&CityId=%s&PageNumber=%s&PageSize=45&SortType=0&CultureInfo=en-US&HasFilter=false&Adults=1&Children=0&Rooms=1&CheckIn=2017-07-29&LengthOfStay=1&ChildAgesStr=" %(cityId, i)
@@ -86,16 +125,29 @@ class YelpSpider(scrapy.Spider):
             hotelId = hotel['HotelID']
             Name = hotel['EnglishHotelName']
             print('######################################### id : Name: %s : %s' %(hotelId, Name))
-            DetailLink = 'https://www.agoda.com/' + slugify(Name) + '/hotel/singapore-sg.html'
-            payload = {"hotelId": str(hotelId),"page":'1',"pageSize":'10',"sorting":'1',"filters":{"language":[],"room":[]}}
+            # DetailLink = 'https://www.agoda.com/' + slugify(Name) + '/hotel/singapore-sg.html'
+            # payload = {"hotelId": str(hotelId),"page":'1',"pageSize":'1',"sorting":'1',"filters":{"language":[],"room":[]}}
             # yield{'hotelId': hotelId}
-            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId),'DetailLink': DetailLink})
+            body = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":1,"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
+            header = self.getJson(HEADER_REVIEW, '\n', ':')
+            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId)})
     def parseCommentNum(self, response):
         # inspect_response(response, self)
         Body = response.css('div#hotelreview-detail-item')
-        DetailLink = response.meta['DetailLink']
         hotelId = response.meta['hotelId']
         pageText = Body.css('div.review-comments-count span::text').extract()
+        Nations = Body.css('div.hotelreview-filter-sort div.review-filters div[data-type="2"] ul.review-filters-items li.review-filters-item')
+        NationText = Nations.css('div.filter-item-info input::attr(value)').extract()
+        Languages = []
+        if len(NationText) > 0:
+            for n in NationText:
+                print(n)
+                for l in LANGUAGE:
+                    if int(n.strip()) == l:
+                        Languages.append(l)
+                        break
+        print('Nation can get is: ')
+        print(Languages)
         print('############# Page: %s' %pageText)
         if len(pageText) > 0: 
             nums = re.findall(r'\d+', ''.join(pageText))
@@ -109,10 +161,13 @@ class YelpSpider(scrapy.Spider):
                             pageNumber += 1
                         print('################# Page Number: %s' %str(pageNumber))
                         for i in range(1, pageNumber + 1):
-                            payload = {"hotelId": str(hotelId),"page":str(i),"pageSize":'10',"sorting":'1',"filters":{"language":[],"room":[]}}
-                            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', formdata = payload, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i,'DetailLink': DetailLink})
+                            # payload = {"hotelId":str(hotelId),"page":str(i),"pageSize":str(REVIEW_PER_PAGE),"sorting":"1","filters":{"language":[2,7,8,20],"room":[]}}
+                            body = '{"hotelId":'+str(hotelId)+',"page":'+str(i)+',"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
+                            header = self.getJson(HEADER_REVIEW, '\n', ':')
+                            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i})
                         break
     def parseComment(self, response):
+        # inspect_response(response, self)
         Body = response.css('div#hotelreview-detail-item')
 
         Reviews = Body.css('div.review-comment-items div.individual-review-item') 
@@ -227,5 +282,4 @@ class YelpSpider(scrapy.Spider):
                     'tags': travelerType,
                     'Room Type Used': roomType,
                     'Detail Stayed': detailStayed,
-                    'product link': response.meta['DetailLink'],
                 }
