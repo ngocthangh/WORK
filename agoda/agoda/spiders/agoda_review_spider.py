@@ -12,28 +12,15 @@ from langdetect import detect
 from scrapy.http import TextResponse
 from scrapy.selector import Selector
 import time
-
+from scrapy.loader import ItemLoader
+from agoda.items import AgodaReviewItem
 
 CONFIG = []
 REVIEW_PER_PAGE = 50
-"""
-1: English
-2: Français        (France)
-3: Deutsch         (Germany)
-5: Español         (Tây Ban Nha)
-6: 日本語          (Japan)
-7: 繁體中文 (香港) (Hong Kong)
-8: 简体中文
-9: 한국어
-11: Русский
-20: 繁體中文 (台灣) (Đài Loan)
-26: Bahasa Indonesia
-22: ภาษาไทย         (ThaiLan)
-24: Tiếng Việt
-39: עברית           (Do Thái)
-"""
-# LANGUAGE = [1,2,7,8,20]
-LANGUAGE = '[20]'
+RATING_OUT_OF = '{"0":10}'
+BRANCH = ['Ascott', 'Citadines', 'Somerset', 'The Crest Collection']
+LANGUAGE = '[1,2,7,8,20]'
+# LANGUAGE = '[]'
 HEADER = """Accept: application/json, text/javascript, */*; q=0.01
 Accept-Language: vi-VN,vi;q=0.8,en-US;q=0.5,en;q=0.3
 Accept-Encoding: gzip, deflate, br
@@ -56,17 +43,6 @@ class YelpSpider(scrapy.Spider):
     ]
     handle_httpstatus_list = [503]
 
-    def readConfiguration(self):
-        file = open('agoda/config', "r") 
-        for line in file: 
-            print (line)
-            p = line.split('=')
-            if len(p) > 1:
-                if int(p[1].strip()) != 0:
-                    CONFIG.append(p[0].strip())
-        print (CONFIG)
-
-
     def parseTest(self, response):
         text = response.css('div#searchlist-header h1::text').extract_first().strip()
         if '0 available properties' not in text:
@@ -85,14 +61,16 @@ class YelpSpider(scrapy.Spider):
         return json.loads(data)
     def parse(self, response):
         # return self.readConfiguration()
-        with open('test.csv') as csvfile:
+        with open('CityIdFinal.csv') as csvfile:
             cities = csv.reader(csvfile, quotechar='"', delimiter=',',
                          quoting=csv.QUOTE_ALL, skipinitialspace=True)
             for city in cities:
-                header = self.getJson(HEADER, '\n', ':')
-                data0 = "SearchType=1&CityId=%s&PageNumber=1&PageSize=45&SortType=0&CultureInfo=en-US&HasFilter=false&Adults=1&Children=0&Rooms=1&CheckIn=2017-07-29&LengthOfStay=1&ChildAgesStr=" %city[1]
-                formdata = self.getJson(data0, '&', '=')
-                yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', headers = header, formdata = formdata, dont_filter=True, callback=self.parseListHotelPage1, method='POST')
+                if city != '':
+                    header = self.getJson(HEADER, '\n', ':')
+                    data0 = "SearchType=1&CityId=%s&PageNumber=1&PageSize=45&SortType=0&CultureInfo=en-US&HasFilter=false&Adults=1&Children=0&Rooms=1&CheckIn=2017-07-29&LengthOfStay=1&ChildAgesStr=" %city[1]
+                    data1 = "SearchType=1&ObjectID=0PlatformID=1001&CurrentDate=2017-07-24&CityId=%s&PageNumber=1&PageSize=45&SortType=0&IsSortChanged=false&SortByAsd=false&ReviewTravelerType=0&IsAllowYesterdaySearch=false&CultureInfo=en-US&UnavailableHotelId=0&Adults=1&Children=0&Rooms=1&CheckIn=2017-08-02&LengthOfStay=1&ChildAgesStr=&ExtraText=&IsDateless=false" %city[1]
+                    formdata = self.getJson(data1, '&', '=')
+                    yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', headers = header, formdata = formdata, dont_filter=True, callback=self.parseListHotelPage1, method='POST')
             
     def parseListHotelPage1(self, response):
         # inspect_response(response, self)
@@ -105,12 +83,14 @@ class YelpSpider(scrapy.Spider):
         for hotel in listHotel:
             hotelId = hotel['HotelID']
             Name = hotel['EnglishHotelName']
-            # DetailLink = 'https://www.agoda.com/' + slugify(Name) + '/hotel/singapore-sg.html'
-            # yield{'hotelId': hotelId}
-            # payload = {"hotelId": str(hotelId),"page":'1', "pageSize":'1',"sorting":'1',"filters":{"language":[],"room":[]}}
-            body = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":1,"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
-            header = self.getJson(HEADER_REVIEW, '\n', ':')
-            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId)})
+            for branch in BRANCH:
+                if branch in Name:
+                    DetailLink = 'https://www.agoda.com' + (hotel['HotelUrl']).split('?')[0]
+                    # yield{'hotelId': hotelId}
+                    # payload = {"hotelId": str(hotelId),"page":'1', "pageSize":'1',"sorting":'1',"filters":{"language":[],"room":[]}}
+                    body = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":1,"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
+                    header = self.getJson(HEADER_REVIEW, '\n', ':')
+                    yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name})
         for i in range(2, totalPage + 1):
             header = self.getJson(HEADER, '\n', ':')
             data0 = "SearchType=1&CityId=%s&PageNumber=%s&PageSize=45&SortType=0&CultureInfo=en-US&HasFilter=false&Adults=1&Children=0&Rooms=1&CheckIn=2017-07-29&LengthOfStay=1&ChildAgesStr=" %(cityId, i)
@@ -124,48 +104,47 @@ class YelpSpider(scrapy.Spider):
         for hotel in listHotel:
             hotelId = hotel['HotelID']
             Name = hotel['EnglishHotelName']
-            print('######################################### id : Name: %s : %s' %(hotelId, Name))
-            # DetailLink = 'https://www.agoda.com/' + slugify(Name) + '/hotel/singapore-sg.html'
-            # payload = {"hotelId": str(hotelId),"page":'1',"pageSize":'1',"sorting":'1',"filters":{"language":[],"room":[]}}
-            # yield{'hotelId': hotelId}
-            body = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":1,"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
-            header = self.getJson(HEADER_REVIEW, '\n', ':')
-            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId)})
+            for branch in BRANCH:
+                if branch in Name:
+                    print('######################################### id : Name: %s : %s' %(hotelId, Name))
+                    DetailLink = 'https://www.agoda.com' + (hotel['HotelUrl']).split('?')[0]
+                    # payload = {"hotelId": str(hotelId),"page":'1',"pageSize":'1',"sorting":'1',"filters":{"language":[],"room":[]}}
+                    # yield{'hotelId': hotelId}
+                    body = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":1,"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
+                    header = self.getJson(HEADER_REVIEW, '\n', ':')
+                    yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name})
     def parseCommentNum(self, response):
         # inspect_response(response, self)
-        Body = response.css('div#hotelreview-detail-item')
+        Bodys = response.css('div#hotelreview-detail-item')
+        Body = Bodys[0]
+        totalReview = 0
+        for bd in Bodys:
+            totalRe = bd.css('::attr(data-totalindex)').extract()
+            if len(totalRe) > 0:
+                totalReview = int(totalRe[0])
+                if totalReview > 0:
+                    Body = bd
+                    break
+        providerId = Body.css('::attr(data-review-provider)').extract()
+        if len(providerId) > 0:
+            providerId = providerId[0]
+        else:
+            providerId = ''
         hotelId = response.meta['hotelId']
-        pageText = Body.css('div.review-comments-count span::text').extract()
-        Nations = Body.css('div.hotelreview-filter-sort div.review-filters div[data-type="2"] ul.review-filters-items li.review-filters-item')
-        NationText = Nations.css('div.filter-item-info input::attr(value)').extract()
-        Languages = []
-        if len(NationText) > 0:
-            for n in NationText:
-                print(n)
-                for l in LANGUAGE:
-                    if int(n.strip()) == l:
-                        Languages.append(l)
-                        break
-        print('Nation can get is: ')
-        print(Languages)
-        print('############# Page: %s' %pageText)
-        if len(pageText) > 0: 
-            nums = re.findall(r'\d+', ''.join(pageText))
-            if len(nums) > 0:
-                for i in range(0, len(nums)):
-                    if int(nums[i]) > 0:
-                        reviewNumber = int(nums[i])
-                        print('################# Review Number: %s' %str(reviewNumber))
-                        pageNumber = reviewNumber / REVIEW_PER_PAGE
-                        if reviewNumber % REVIEW_PER_PAGE > 0:
-                            pageNumber += 1
-                        print('################# Page Number: %s' %str(pageNumber))
-                        for i in range(1, pageNumber + 1):
-                            # payload = {"hotelId":str(hotelId),"page":str(i),"pageSize":str(REVIEW_PER_PAGE),"sorting":"1","filters":{"language":[2,7,8,20],"room":[]}}
-                            body = '{"hotelId":'+str(hotelId)+',"page":'+str(i)+',"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
-                            header = self.getJson(HEADER_REVIEW, '\n', ':')
-                            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i})
-                        break
+        
+        print('################# Review Number: %s' %str(totalReview))
+        pageNumber = totalReview / REVIEW_PER_PAGE
+        if totalReview % REVIEW_PER_PAGE > 0:
+            pageNumber += 1
+        print('################# Page Number: %s' %str(pageNumber))
+        DetailLink = response.meta['DetailLink']
+        Name = response.meta['Name']
+        for i in range(1, pageNumber + 1):
+            # payload = {"hotelId":str(hotelId),"page":str(i),"pageSize":str(REVIEW_PER_PAGE),"sorting":"1","filters":{"language":[2,7,8,20],"room":[]}}
+            body = '{"hotelId":'+str(hotelId)+',"page":'+str(i)+',"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
+            header = self.getJson(HEADER_REVIEW, '\n', ':')
+            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name})
+                        
     def parseComment(self, response):
         # inspect_response(response, self)
         Body = response.css('div#hotelreview-detail-item')
@@ -230,21 +209,21 @@ class YelpSpider(scrapy.Spider):
             CommentReview = reDetail.css('div.comment-icon span::text').extract()
             if len(CommentReview) > 0:
                 PositiveReview = CommentReview[0].strip()
-                ReviewText += 'Positive: ' + PositiveReview
+                ReviewText += '+ ' + PositiveReview
             
             NegativeReview = ''
             if len(CommentReview) > 1:
                 NegativeReview = CommentReview[1].strip()
                 if ReviewText != '':
                     ReviewText += '\n'
-                ReviewText += 'Negative: ' + NegativeReview
+                ReviewText += '- ' + NegativeReview
 
             ReviewText1 = reDetail.css('div.comment-text span::text').extract()
             if len(ReviewText1) > 0:
                 ReviewText1 = ReviewText1[0].strip()
                 if ReviewText != '':
                     ReviewText += '\n'
-                ReviewText += 'General: ' + ReviewText1
+                ReviewText += ' ' + ReviewText1
             else:
                 ReviewText1 = ''
             
@@ -259,27 +238,35 @@ class YelpSpider(scrapy.Spider):
                 ReviewDate = ''
             parser.parserinfo(dayfirst=True) 
             dateTimeStamp = parser.parse(ReviewDate)
-            dateTimeStamp = int(time.mktime(dateTimeStamp.timetuple()))
+            dateTimeStamp = str(time.mktime(dateTimeStamp.timetuple()))
             Language = ''
             try:
                 if(ReviewText != ''):
-                    Language = detect(ReviewText)
+                    Language = detect(ReviewTitle + PositiveReview + NegativeReview + ReviewText1)
                 pass
             except Exception as e:
                 print('Can not detect language!')
 
             hotelId = response.meta['hotelId']
-            yield{
-                    'title': ReviewTitle,
-                    'text': ReviewText,
-                    'detect language': Language,
-                    'date publish': ReviewDate,
-                    'timestamp': dateTimeStamp,
-                    'product id': hotelId,
-                    'review score': reScore,
-                    'author': reviewerName,
-                    'country': reviewerNation,
-                    'tags': travelerType,
-                    'Room Type Used': roomType,
-                    'Detail Stayed': detailStayed,
-                }
+            DetailLink = response.meta['DetailLink']
+            providerId = response.meta['providerId']
+            Name = response.meta['Name']
+
+            it = ItemLoader(item=AgodaReviewItem())
+            it.add_value('title', ReviewTitle)
+            it.add_value('text', ReviewText)
+            it.add_value('detect_lang', Language)
+            it.add_value('published_date_1', ReviewDate)
+            it.add_value('published_date', dateTimeStamp)
+            it.add_value('product_id', hotelId)
+            it.add_value('rating', reScore)
+            it.add_value('rating_outof', RATING_OUT_OF)
+            it.add_value('author', reviewerName)
+            it.add_value('country', reviewerNation)
+            it.add_value('reviewer_group', travelerType)
+            it.add_value('room_type', roomType)
+            it.add_value('stay_detail', detailStayed)
+            it.add_value('url', DetailLink)
+            it.add_value('data_provider_id', providerId)
+            it.add_value('product_name', Name)
+            return it.load_item()
