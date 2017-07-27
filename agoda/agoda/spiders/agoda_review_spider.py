@@ -18,7 +18,7 @@ from agoda.items import AgodaReviewItem
 CONFIG = []
 REVIEW_PER_PAGE = 50
 RATING_OUT_OF = '{"0":10}'
-BRANCH = ['Ascott', 'Citadines', 'Somerset', 'The Crest Collection']
+BRANCH = ['Ascott', 'Citadines', 'Somerset']
 LANGUAGE = '[1,2,7,8,20]'
 # LANGUAGE = '[]'
 HEADER = """Accept: application/json, text/javascript, */*; q=0.01
@@ -37,8 +37,6 @@ class YelpSpider(scrapy.Spider):
     name = "agodareview"
     allowed_domains = ["agoda.com"]
     start_urls = [
-        # 'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064&pagetypeid=103&origin=DK&cid=-1&tag=&gclid=&aid=130243&userId=a45dbc08-94c8-4883-8267-14e589793930&languageId=1&sessionId=fn0s5opvtin15we2ijf5j20s&storefrontId=3&currencyCode=DKK&htmlLanguage=en-us&trafficType=User&cultureInfoName=en-US&checkIn=2017-07-13&checkOut=2017-08-10&los=28&rooms=1&adults=1&children=0&childages=&ckuid=a45dbc08-94c8-4883-8267-14e589793930',
-        # 'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064&pagetypeid=103&origin=DK&cid=-1&tag=&gclid=&aid=130243&userId=a45dbc08-94c8-4883-8267-14e589793930&languageId=1&sessionId=fn0s5opvtin15we2ijf5j20s&storefrontId=3&currencyCode=DKK&htmlLanguage=en-us&trafficType=User&cultureInfoName=en-US&checkIn=2018-02-15&checkOut=2018-02-16&los=1&rooms=1&adults=2&children=0&childages=&ckuid=a45dbc08-94c8-4883-8267-14e589793930',
         'https://www.agoda.com/pages/agoda/default/DestinationSearchResult.aspx?city=4064',
     ]
     handle_httpstatus_list = [503]
@@ -65,15 +63,17 @@ class YelpSpider(scrapy.Spider):
             cities = csv.reader(csvfile, quotechar='"', delimiter=',',
                          quoting=csv.QUOTE_ALL, skipinitialspace=True)
             for city in cities:
-                if city != '':
+                if len(city) > 0:
+                    idSearch = str(city[0])
                     header = self.getJson(HEADER, '\n', ':')
-                    data0 = "SearchType=1&CityId=%s&PageNumber=1&PageSize=45&SortType=0&CultureInfo=en-US&HasFilter=false&Adults=1&Children=0&Rooms=1&CheckIn=2017-07-29&LengthOfStay=1&ChildAgesStr=" %city[1]
-                    data1 = "SearchType=1&ObjectID=0PlatformID=1001&CurrentDate=2017-07-24&CityId=%s&PageNumber=1&PageSize=45&SortType=0&IsSortChanged=false&SortByAsd=false&ReviewTravelerType=0&IsAllowYesterdaySearch=false&CultureInfo=en-US&UnavailableHotelId=0&Adults=1&Children=0&Rooms=1&CheckIn=2017-08-02&LengthOfStay=1&ChildAgesStr=&ExtraText=&IsDateless=false" %city[1]
+                    # data0 = "SearchType=1&CityId=%s&PageNumber=1&PageSize=45&SortType=0&CultureInfo=en-US&HasFilter=false&Adults=1&Children=0&Rooms=1&CheckIn=2017-07-29&LengthOfStay=1&ChildAgesStr=" %city[1]
+                    data1 = "SearchType=1&ObjectID=0PlatformID=1001&CurrentDate=2017-07-24&CityId=%s&PageNumber=1&PageSize=45&SortType=0&IsSortChanged=false&SortByAsd=false&ReviewTravelerType=0&IsAllowYesterdaySearch=false&CultureInfo=en-US&UnavailableHotelId=0&Adults=1&Children=0&Rooms=1&CheckIn=2017-08-02&LengthOfStay=1&ChildAgesStr=&ExtraText=&IsDateless=false" %idSearch
                     formdata = self.getJson(data1, '&', '=')
-                    yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', headers = header, formdata = formdata, dont_filter=True, callback=self.parseListHotelPage1, method='POST')
+                    yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', headers = header, formdata = formdata, dont_filter=True, callback=self.parseListHotelPage1, method='POST', meta = {'idSearch': idSearch})
             
     def parseListHotelPage1(self, response):
         # inspect_response(response, self)
+        print('###########Searching for id: ' %response.meta['idSearch'])
         Result = json.loads(response.body)
         totalPage = Result['TotalPage']
         page = Result['PageNumber']
@@ -209,21 +209,21 @@ class YelpSpider(scrapy.Spider):
             CommentReview = reDetail.css('div.comment-icon span::text').extract()
             if len(CommentReview) > 0:
                 PositiveReview = CommentReview[0].strip()
-                ReviewText += '+ ' + PositiveReview
+                ReviewText += 'P: ' + PositiveReview
             
             NegativeReview = ''
             if len(CommentReview) > 1:
                 NegativeReview = CommentReview[1].strip()
                 if ReviewText != '':
                     ReviewText += '\n'
-                ReviewText += '- ' + NegativeReview
+                ReviewText += 'N: ' + NegativeReview
 
             ReviewText1 = reDetail.css('div.comment-text span::text').extract()
             if len(ReviewText1) > 0:
                 ReviewText1 = ReviewText1[0].strip()
                 if ReviewText != '':
                     ReviewText += '\n'
-                ReviewText += ' ' + ReviewText1
+                ReviewText += 'G: ' + ReviewText1
             else:
                 ReviewText1 = ''
             
@@ -269,4 +269,4 @@ class YelpSpider(scrapy.Spider):
             it.add_value('url', DetailLink)
             it.add_value('data_provider_id', providerId)
             it.add_value('product_name', Name)
-            return it.load_item()
+            yield it.load_item()
