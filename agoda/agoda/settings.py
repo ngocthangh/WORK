@@ -13,7 +13,7 @@ BOT_NAME = 'agoda'
 
 SPIDER_MODULES = ['agoda.spiders']
 NEWSPIDER_MODULE = 'agoda.spiders'
-
+AJAXCRAWL_ENABLED = True
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'agoda (+http://www.yourdomain.com)'
@@ -33,7 +33,7 @@ ROBOTSTXT_OBEY = False
 #CONCURRENT_REQUESTS_PER_IP = 16
 
 # Disable cookies (enabled by default)
-#COOKIES_ENABLED = False
+COOKIES_ENABLED = False
 
 # Disable Telnet Console (enabled by default)
 #TELNETCONSOLE_ENABLED = False
@@ -64,9 +64,9 @@ ROBOTSTXT_OBEY = False
 
 # Configure item pipelines
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    'agoda.pipelines.AgodaPipeline': 300,
-#}
+ITEM_PIPELINES = {
+   'agoda.pipelines.AgodaReviewPipeline': 300,
+}
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See http://doc.scrapy.org/en/latest/topics/autothrottle.html

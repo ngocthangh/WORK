@@ -43,7 +43,7 @@ class YelpSpider(scrapy.Spider):
         data = data[:-1] + ' }'
         return json.loads(data)
     def parse(self, response):
-        for city in range(0, 720000):
+        for city in range(720000, 1000000):
             header = self.getJson(HEADER, '\n', ':')
             data1 = "SearchType=1&ObjectID=0PlatformID=1001&CurrentDate=2017-07-24&CityId=%s&PageNumber=1&PageSize=45&SortType=0&IsSortChanged=false&SortByAsd=false&ReviewTravelerType=0&IsAllowYesterdaySearch=false&CultureInfo=en-US&UnavailableHotelId=0&Adults=1&Children=0&Rooms=1&CheckIn=2017-08-02&LengthOfStay=1&ChildAgesStr=&ExtraText=&IsDateless=false" %str(city)
             formdata = self.getJson(data1, '&', '=')

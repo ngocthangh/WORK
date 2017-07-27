@@ -1,6 +1,5 @@
 import scrapy
 import json
-from msvcrt import getch
 import csv
 import re
 from slugify import slugify
@@ -8,12 +7,14 @@ from scrapy.shell import inspect_response
 from scrapy.http import FormRequest
 from dateutil import parser
 import time
+from datetime import date, timedelta
 from langdetect import detect
 from scrapy.http import TextResponse
 from scrapy.selector import Selector
 import time
 from scrapy.loader import ItemLoader
 from agoda.items import AgodaReviewItem
+import queryMySQL
 
 CONFIG = []
 REVIEW_PER_PAGE = 50
@@ -41,6 +42,10 @@ class YelpSpider(scrapy.Spider):
     ]
     handle_httpstatus_list = [503]
 
+    # def __init__(self):
+    #     self.db = queryMySQL()
+    #     self.db.create_database()
+    #     self.db.create_table()
     def parseTest(self, response):
         text = response.css('div#searchlist-header h1::text').extract_first().strip()
         if '0 available properties' not in text:
@@ -59,7 +64,7 @@ class YelpSpider(scrapy.Spider):
         return json.loads(data)
     def parse(self, response):
         # return self.readConfiguration()
-        with open('CityIdFinal.csv') as csvfile:
+        with open('citydata/AgodaCitys4.csv') as csvfile:
             cities = csv.reader(csvfile, quotechar='"', delimiter=',',
                          quoting=csv.QUOTE_ALL, skipinitialspace=True)
             for city in cities:
@@ -73,7 +78,7 @@ class YelpSpider(scrapy.Spider):
             
     def parseListHotelPage1(self, response):
         # inspect_response(response, self)
-        print('###########Searching for id: ' %response.meta['idSearch'])
+        print('###########Searching for id: %s' %response.meta['idSearch'])
         Result = json.loads(response.body)
         totalPage = Result['TotalPage']
         page = Result['PageNumber']
@@ -158,6 +163,24 @@ class YelpSpider(scrapy.Spider):
                 reId = ''
 
             reInfo = re.css('div.review-info')
+            reDetail = re.css('div.nopadding-right div.review-comment-bubble')
+
+            ReviewDate = reDetail.css('div.comment-date-only div.comment-date span::text').extract()
+            if len(ReviewDate) <= 0:
+                ReviewDate = reDetail.css('div.comment-date-translate div.comment-date span::text').extract()
+            if len(ReviewDate) > 0:
+                ReviewDate = ReviewDate[0].strip().split('Reviewed')
+                if len(ReviewDate) > 1:
+                    ReviewDate = ReviewDate[1].strip()
+            else:
+                ReviewDate = ''
+            parser.parserinfo(dayfirst=True) 
+            dateTimeStamp = parser.parse(ReviewDate)
+            d = date(dateTimeStamp.year, dateTimeStamp.month, dateTimeStamp.day)
+            if(d >= date.today()):
+                continue
+            dateTimeStamp = str(time.mktime(dateTimeStamp.timetuple()))
+
 
             reScore = reInfo.css('div.comment-score span::text').extract()
             if len(reScore) > 0:
@@ -197,7 +220,7 @@ class YelpSpider(scrapy.Spider):
             else:
                 detailStayed = ''
 
-            reDetail = re.css('div.nopadding-right div.review-comment-bubble')
+            
             ReviewTitle = reDetail.css('div.comment-title div.comment-title-text::text').extract()
             if len(ReviewTitle) > 0:
                 ReviewTitle = ReviewTitle[0].strip()[:-1]
@@ -227,18 +250,7 @@ class YelpSpider(scrapy.Spider):
             else:
                 ReviewText1 = ''
             
-            ReviewDate = reDetail.css('div.comment-date-only div.comment-date span::text').extract()
-            if len(ReviewDate) <= 0:
-                ReviewDate = reDetail.css('div.comment-date-translate div.comment-date span::text').extract()
-            if len(ReviewDate) > 0:
-                ReviewDate = ReviewDate[0].strip().split('Reviewed')
-                if len(ReviewDate) > 1:
-                    ReviewDate = ReviewDate[1].strip()
-            else:
-                ReviewDate = ''
-            parser.parserinfo(dayfirst=True) 
-            dateTimeStamp = parser.parse(ReviewDate)
-            dateTimeStamp = str(time.mktime(dateTimeStamp.timetuple()))
+            
             Language = ''
             try:
                 if(ReviewText != ''):
