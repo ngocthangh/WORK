@@ -1,7 +1,9 @@
 import mysql.connector
 from mysql.connector import errorcode
 from datetime import date, datetime, timedelta
-
+from agoda.items import AgodaReviewItem
+import sys
+import string
 
 class connectMySQL:
     DB_NAME = 'agoda'
@@ -9,8 +11,8 @@ class connectMySQL:
     TABLES['review'] = (
         "CREATE TABLE IF NOT EXISTS `review` ("
         "  `rev_no` int(11) NOT NULL AUTO_INCREMENT,"
-        "  `title` varchar(255) ,"
-        "  `text` text,"
+        "  `title` varchar(255) CHARACTER SET utf8,"
+        "  `text` text CHARACTER SET utf8,"
         "  `detect_lang` varchar(10),"
         "  `published_date` bigint(15),"
         "  `published_date_1` date,"
@@ -105,7 +107,89 @@ class connectMySQL:
         except mysql.connector.Error as err:
             print(err)
         else:
-            print("OK")
+            print("Insert Hotel OK !!!")
+    def insert_city(self, cityId, cityName):
+        add_city = ("INSERT INTO city "
+              "(city_id, city_name) "
+              "VALUES (%(city_id)s, %(city_name)s)")
+        data_city = {
+          'city_id': cityId,
+          'city_name': cityName,
+        }
+        try:
+            self.cursor.execute(add_city, data_city)
+            self.cnx.commit()
+        except mysql.connector.Error as err:
+            print(err)
+        else:
+            print("Insert City OK !!!")
+    def insert_review(self, it):
+        item = it.load_item()
+        add_review = ("INSERT INTO review "
+              "(title, text, detect_lang, published_date_1, published_date, product_id, rating, rating_outof, author, country, reviewer_group, room_type, stay_detail, url, data_provider_id, product_name) "
+              "VALUES (%(title)s, %(text)s, %(detect_lang)s, %(published_date_1)s, %(published_date)s, %(product_id)s, %(rating)s, %(rating_outof)s, %(author)s, %(country)s, %(reviewer_group)s, %(room_type)s, %(stay_detail)s, %(url)s, %(data_provider_id)s, %(product_name)s)")
+        
+        data_review = {
+          'title': item['title'][0],
+          'text': item['text'][0],
+          'detect_lang': item['detect_lang'][0],
+          'published_date_1': item['published_date_1'][0],
+          'published_date': item['published_date'][0],
+          'product_id': item['product_id'][0],
+          'rating': item['rating'][0],
+          'rating_outof': item['rating_outof'][0],
+          'author': item['author'][0],
+          'country': item['country'][0],
+          'reviewer_group': item['reviewer_group'][0],
+          'room_type': item['room_type'][0],
+          'stay_detail': item['stay_detail'][0],
+          'url': item['url'][0],
+          'data_provider_id': item['data_provider_id'][0],
+          'product_name': item['product_name'][0],
+        }
+        try:
+            self.cursor.execute(add_review, data_review)
+            self.cnx.commit()
+        except mysql.connector.Error as err:
+            print('Re-encoding for error: %s' %err)
+            text = item['text'][0].encode('utf-8')
+            text_result = ''
+            for t in text:
+                if t in string.printable:
+                    text_result += t
+
+            title = item['title'][0].encode('utf-8')
+            title_result = ''
+            for t1 in title:
+                if t1 in string.printable:
+                    title_result += t1
+            data_review = {
+          'title': title_result,
+          'text': text_result,
+          'detect_lang': item['detect_lang'][0],
+          'published_date_1': item['published_date_1'][0],
+          'published_date': item['published_date'][0],
+          'product_id': item['product_id'][0],
+          'rating': item['rating'][0],
+          'rating_outof': item['rating_outof'][0],
+          'author': item['author'][0],
+          'country': item['country'][0],
+          'reviewer_group': item['reviewer_group'][0],
+          'room_type': item['room_type'][0],
+          'stay_detail': item['stay_detail'][0],
+          'url': item['url'][0],
+          'data_provider_id': item['data_provider_id'][0],
+          'product_name': item['product_name'][0],
+            }
+            try:
+                self.cursor.execute(add_review, data_review)
+                self.cnx.commit()
+            except mysql.connector.Error as err:
+                print("Can't re-encode for error: %s" %err)
+            else:
+                print("Insert Review OK !!!")
+        else:
+            print("Insert Review OK !!!")
 
     def update_hotel(self, hotelId, lastDateCrawl):
         upd_hotel = ("UPDATE hotel SET last_date_crawl = '%s' WHERE hotel_id = %s" %(lastDateCrawl, hotelId))
@@ -129,6 +213,7 @@ class connectMySQL:
         self.cursor.close()
         self.cnx.close()
         print('closed ....')
+
 if __name__ == '__main__':
     ins = connectMySQL()
     ins.create_database()
