@@ -49,6 +49,7 @@ class YelpSpider(scrapy.Spider):
         self.db.create_table()
         self.crawl_till_date = date.today() - timedelta(1)
         self.ids_seen = set()
+        self.ids_rev = set()
     def parseTest(self, response):
         text = response.css('div#searchlist-header h1::text').extract_first().strip()
         if '0 available properties' not in text:
@@ -146,34 +147,35 @@ class YelpSpider(scrapy.Spider):
     def parseCommentNum(self, response):
         # inspect_response(response, self)
         Bodys = response.css('div#hotelreview-detail-item')
-        Body = Bodys[0]
-        totalReview = 0
-        for bd in Bodys:
-            totalRe = bd.css('::attr(data-totalindex)').extract()
-            if len(totalRe) > 0:
-                totalReview = int(totalRe[0])
-                if totalReview > 0:
-                    Body = bd
-                    break
-        providerId = Body.css('::attr(data-review-provider)').extract()
-        if len(providerId) > 0:
-            providerId = providerId[0]
-        else:
-            providerId = ''
-        hotelId = response.meta['hotelId']
-        
-        print('################# Review Number: %s' %str(totalReview))
-        pageNumber = totalReview / REVIEW_PER_PAGE
-        if totalReview % REVIEW_PER_PAGE > 0:
-            pageNumber += 1
-        print('################# Page Number: %s' %str(pageNumber))
-        DetailLink = response.meta['DetailLink']
-        Name = response.meta['Name']
-        for i in range(1, pageNumber + 1):
-            # payload = {"hotelId":str(hotelId),"page":str(i),"pageSize":str(REVIEW_PER_PAGE),"sorting":"1","filters":{"language":[2,7,8,20],"room":[]}}
-            body = '{"hotelId":'+str(hotelId)+',"page":'+str(i)+',"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
-            header = self.getJson(HEADER_REVIEW, '\n', ':')
-            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name})
+        if len(Bodys) > 0:
+            Body = Bodys[0]
+            totalReview = 0
+            for bd in Bodys:
+                totalRe = bd.css('::attr(data-totalindex)').extract()
+                if len(totalRe) > 0:
+                    totalReview = int(totalRe[0])
+                    if totalReview > 0:
+                        Body = bd
+                        break
+            providerId = Body.css('::attr(data-review-provider)').extract()
+            if len(providerId) > 0:
+                providerId = providerId[0]
+            else:
+                providerId = ''
+            hotelId = response.meta['hotelId']
+            
+            print('################# Review Number: %s' %str(totalReview))
+            pageNumber = int(totalReview / REVIEW_PER_PAGE)
+            if totalReview % REVIEW_PER_PAGE > 0:
+                pageNumber += 1
+            print('################# Page Number: %s' %str(pageNumber))
+            DetailLink = response.meta['DetailLink']
+            Name = response.meta['Name']
+            for i in range(1, pageNumber + 1):
+                # payload = {"hotelId":str(hotelId),"page":str(i),"pageSize":str(REVIEW_PER_PAGE),"sorting":"1","filters":{"language":[2,7,8,20],"room":[]}}
+                body = '{"hotelId":'+str(hotelId)+',"page":'+str(i)+',"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
+                header = self.getJson(HEADER_REVIEW, '\n', ':')
+                yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name})
                         
     def parseComment(self, response):
         # inspect_response(response, self)
@@ -288,12 +290,15 @@ class YelpSpider(scrapy.Spider):
             DetailLink = response.meta['DetailLink']
             providerId = response.meta['providerId']
             Name = response.meta['Name']
-
+            rev = reviewerName + reviewerNation + hotelId + dateTimeStamp + reScore
+            if rev in self.ids_rev:
+                print('Duplicate Review for: %s' %rev)
+                continue
             it = ItemLoader(item=AgodaReviewItem())
             it.add_value('title', ReviewTitle)
             it.add_value('text', ReviewText)
             it.add_value('detect_lang', Language)
-            it.add_value('published_date_1', ReviewDateParse)
+            it.add_value('published_date_1', str(ReviewDateParse))
             it.add_value('published_date', dateTimeStamp)
             it.add_value('product_id', hotelId)
             it.add_value('rating', reScore)
@@ -308,3 +313,4 @@ class YelpSpider(scrapy.Spider):
             it.add_value('product_name', Name)
             self.db.insert_review(it)
             yield it.load_item()
+            self.ids_rev.add(rev)
