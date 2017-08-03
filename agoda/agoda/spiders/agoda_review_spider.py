@@ -201,7 +201,7 @@ class YelpSpider(scrapy.Spider):
                     ReviewDate = ReviewDate[1].strip()
             else:
                 ReviewDate = ''
-            parser.parserinfo(dayfirst=True) 
+            parser.parserinfo() 
             dateTimeStamp = parser.parse(ReviewDate)
             ReviewDateParse = date(dateTimeStamp.year, dateTimeStamp.month, dateTimeStamp.day)
             if (ReviewDateParse > self.crawl_till_date):
@@ -254,34 +254,43 @@ class YelpSpider(scrapy.Spider):
             else:
                 ReviewTitle = ''
 
+            SourceSentiment = ''
             ReviewText = ''
             PositiveReview = ''
             CommentReview = reDetail.css('div.comment-icon span::text').extract()
             if len(CommentReview) > 0:
                 PositiveReview = CommentReview[0].strip()
-                ReviewText += '(+): ' + PositiveReview
+                ReviewText += PositiveReview
+                if PositiveReview != '':
+                    SourceSentiment += 'positive'
             
             NegativeReview = ''
             if len(CommentReview) > 1:
                 NegativeReview = CommentReview[1].strip()
                 if ReviewText != '':
                     ReviewText += '\n'
-                ReviewText += '(-): ' + NegativeReview
+                ReviewText += NegativeReview
+                if NegativeReview != '':
+                    if SourceSentiment == '':
+                        SourceSentiment += 'negative'
+                    else:
+                        SourceSentiment += ''
 
             ReviewText1 = reDetail.css('div.comment-text span::text').extract()
             if len(ReviewText1) > 0:
                 ReviewText1 = ReviewText1[0].strip()
                 if ReviewText != '':
                     ReviewText += '\n'
-                ReviewText += '(~): ' + ReviewText1
+                ReviewText += ReviewText1
             else:
                 ReviewText1 = ''
-            
             
             Language = ''
             try:
                 if(ReviewText != ''):
-                    Language = detect(ReviewTitle + PositiveReview + NegativeReview + ReviewText1)
+                    Language = detect(PositiveReview + NegativeReview + ReviewText1)
+                    if Language == 'ko':
+                        Language = 'zh-tw'
                 pass
             except Exception as e:
                 print('Can not detect language!')
@@ -290,14 +299,14 @@ class YelpSpider(scrapy.Spider):
             DetailLink = response.meta['DetailLink']
             providerId = response.meta['providerId']
             Name = response.meta['Name']
-            rev = reviewerName + reviewerNation + hotelId + dateTimeStamp + reScore
+            rev = reviewerName + reviewerNation + hotelId + dateTimeStamp + reScore + travelerType + roomType + detailStayed + ReviewTitle
             if rev in self.ids_rev:
                 print('Duplicate Review for: %s' %rev)
                 continue
             it = ItemLoader(item=AgodaReviewItem())
             it.add_value('title', ReviewTitle)
             it.add_value('text', ReviewText)
-            it.add_value('detect_lang', Language)
+            it.add_value('detected_lang', Language)
             it.add_value('published_date_1', str(ReviewDateParse))
             it.add_value('published_date', dateTimeStamp)
             it.add_value('product_id', hotelId)
@@ -311,6 +320,7 @@ class YelpSpider(scrapy.Spider):
             it.add_value('url', DetailLink)
             it.add_value('data_provider_id', providerId)
             it.add_value('product_name', Name)
+            it.add_value('source_sentiment', SourceSentiment)
             self.db.insert_review(it)
             yield it.load_item()
             self.ids_rev.add(rev)

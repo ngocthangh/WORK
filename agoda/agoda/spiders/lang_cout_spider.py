@@ -21,7 +21,7 @@ class YelpSpider(scrapy.Spider):
     ]
     handle_httpstatus_list = [503]
     def parse(self, response):
-        with open('AgodaReviews.csv') as csvfile:
+        with open('AgodaReviewFinal_5.csv') as csvfile:
             texts = csv.reader(csvfile, quotechar='"', delimiter=',',
                          quoting=csv.QUOTE_ALL, skipinitialspace=True)
             # EN = 0
@@ -72,3 +72,32 @@ class YelpSpider(scrapy.Spider):
             print('MIN : %s' %MIN_TIME)
             print('TOTAL TIMESTAMP : %s' %TOTAL)
             print('TOTAL DAY: %s' %(TOTAL/(3600*24)))
+            
+            # HotelId = set()
+            # Review = set()
+            # REAL = 0
+            # TOTAL = 0
+            # TOTALHOTEL = 0
+            # DUPLICATE = 0
+            # i = 0
+            # for text in texts:
+            #     i += 1
+            #     if i == 1:
+            #         continue
+            #     REAL += 1
+            #     item = text[0] + text[1] + text[2] + text[4] + text[5] + text[7] + text[8]+ text[10] + text[12] 
+            #     if text[1] not in HotelId:
+            #         HotelId.add(text[1])
+            #         TOTALHOTEL += 1
+            #         print('############## Added hotel %s' %text[1])
+            #     if item not in Review:
+            #         Review.add(item)
+            #         TOTAL += 1
+            #         print('------------ Added %s' %item)
+            #     else:
+            #         DUPLICATE += 1
+            #         print('!!!!!!!!!!!!!!!!DUPLICATE FOR: %s' %item)
+            # print('SCANNED: %s' %REAL)
+            # print('TOTAL HOTEL: %s' %TOTALHOTEL)
+            # print('TOTAL REVS: %s' %TOTAL)
+            # print('DUPLICATE: %s' %DUPLICATE)

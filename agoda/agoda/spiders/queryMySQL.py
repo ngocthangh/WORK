@@ -6,7 +6,7 @@ import sys
 import string
 
 class connectMySQL:
-    DB_NAME = 'agoda'
+    DB_NAME = 'agoda2'
     TABLES = {}
     TABLES['review'] = (
         "CREATE TABLE IF NOT EXISTS `review` ("
@@ -72,14 +72,15 @@ class connectMySQL:
                 "CREATE DATABASE IF NOT EXISTS {} DEFAULT CHARACTER SET 'utf8'".format(self.DB_NAME))
         except mysql.connector.Error as err:
             print(err)
-
-    def create_table(self):
+        self.selectDB()
+    def selectDB(self):
         try:
             self.cursor.execute(
                 "USE {}".format(self.DB_NAME))
         except mysql.connector.Error as err:
             print(err)
             exit(1)
+    def create_table(self):
         for name, ddl in self.TABLES.iteritems():
             try:
                 print("Creating table {}: ".format(name))
@@ -201,8 +202,17 @@ class connectMySQL:
             print(err)
         else:
             print("OK")
-    def query_hotel(self, hotelId):
-        query_hotel = ("SELECT * FROM hotel WHERE hotel_id = %s" %hotelId)
+    def query_hotel(self):
+        query_hotel = ("SELECT * FROM hotel")
+        try:
+            self.cursor.execute(query_hotel)
+        except mysql.connector.Error as err:
+            print(err)
+        list = self.cursor
+        return list
+    def query_hotel_id(self):
+        self.selectDB()
+        query_hotel = ("SELECT hotel_id FROM hotel")
         try:
             self.cursor.execute(query_hotel)
         except mysql.connector.Error as err:
