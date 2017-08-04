@@ -19,9 +19,11 @@ from queryMySQL import connectMySQL
 CONFIG = []
 REVIEW_PER_PAGE = 50
 RATING_OUT_OF = '{"0":10}'
-BRANCH = ['Ascott', 'Citadines', 'Somerset']
-# BRANCH = ['Snow Lavender']
+# BRANCH = ['Ascott', 'Citadines', 'Somerset']
+INSERTDB = False
+BRANCH = ['CPH']
 LANGUAGE = '[1,2,7,8,20]'
+LANGS = ['[1]', '[2]', '[7,8,20]']
 # LANGUAGE = '[]'
 HEADER = """Accept: application/json, text/javascript, */*; q=0.01
 Accept-Language: vi-VN,vi;q=0.8,en-US;q=0.5,en;q=0.3
@@ -44,9 +46,10 @@ class YelpSpider(scrapy.Spider):
     handle_httpstatus_list = [503]
 
     def __init__(self):
-        self.db = connectMySQL()
-        self.db.create_database()
-        self.db.create_table()
+        if INSERTDB:
+            self.db = connectMySQL()
+            self.db.create_database()
+            self.db.create_table()
         self.crawl_till_date = date.today() - timedelta(1)
         self.ids_seen = set()
         self.ids_rev = set()
@@ -67,7 +70,7 @@ class YelpSpider(scrapy.Spider):
         data = data[:-1] + ' }'
         return json.loads(data)
     def parse(self, response):
-        with open('citydata/CityFinal_1.csv') as csvfile:
+        with open('citydata/test.csv') as csvfile:
             cities = csv.reader(csvfile, quotechar='"', delimiter=',',
                          quoting=csv.QUOTE_ALL, skipinitialspace=True)
             i = 0
@@ -82,7 +85,7 @@ class YelpSpider(scrapy.Spider):
                     idSearch = str(city[0])
                     header = self.getJson(HEADER, '\n', ':')
                     # data0 = "SearchType=1&CityId=%s&PageNumber=1&PageSize=45&SortType=0&CultureInfo=en-US&HasFilter=false&Adults=1&Children=0&Rooms=1&CheckIn=2017-07-29&LengthOfStay=1&ChildAgesStr=" %city[1]
-                    data1 = "SearchType=1&ObjectID=0&PlatformID=1001&CurrentDate=2017-07-24&CityId=%s&PageNumber=1&PageSize=45&SortType=0&IsSortChanged=false&SortByAsd=false&ReviewTravelerType=0&IsAllowYesterdaySearch=false&CultureInfo=en-US&UnavailableHotelId=0&Adults=1&Children=0&Rooms=1&CheckIn=2017-08-02&LengthOfStay=1&ChildAgesStr=&ExtraText=&IsDateless=false" %idSearch
+                    data1 = "SearchType=1&ObjectID=0&PlatformID=1001&CityId=%s&PageNumber=1&PageSize=45&SortType=0&IsSortChanged=false&SortByAsd=false&ReviewTravelerType=0&IsAllowYesterdaySearch=false&CultureInfo=en-US&UnavailableHotelId=0&Adults=1&Children=0&Rooms=1&LengthOfStay=1&ChildAgesStr=&ExtraText=&IsDateless=false" %idSearch
                     formdata = self.getJson(data1, '&', '=')
                     yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', headers = header, formdata = formdata, dont_filter=True, callback=self.parseListHotelPage1, method='POST', meta = {'idSearch': idSearch})
 
@@ -95,7 +98,8 @@ class YelpSpider(scrapy.Spider):
         page = Result['PageNumber']
         cityId = Result['SearchCriteria']['CityId']
         listHotel = Result['ResultList']
-        self.db.insert_city(cityId, cityName)
+        if INSERTDB:
+            self.db.insert_city(cityId, cityName)
         print('-----------Get %s hotel' %str(len(listHotel)))
         for hotel in listHotel:
             hotelId = hotel['HotelID']
@@ -107,12 +111,17 @@ class YelpSpider(scrapy.Spider):
                         break
                     else:
                         DetailLink = 'https://www.agoda.com' + (hotel['HotelUrl']).split('?')[0]
-                        self.db.insert_hotel(hotelId, Name, DetailLink, self.crawl_till_date)
+                        if INSERTDB:
+                            self.db.insert_hotel(hotelId, Name, DetailLink, self.crawl_till_date)
                         # yield{'hotelId': hotelId}
                         # payload = {"hotelId": str(hotelId),"page":'1', "pageSize":'1',"sorting":'1',"filters":{"language":[],"room":[]}}
-                        body = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":1,"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
                         header = self.getJson(HEADER_REVIEW, '\n', ':')
-                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name})
+                        body1 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":[1],"room":[]}}'
+                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body1, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name, 'Page': '1', 'Lang': 'en', 'LangBody': '[1]'})
+                        body2 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":[2],"room":[]}}'
+                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body2, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name, 'Page': '1', 'Lang': 'fr', 'LangBody': '[2]'})
+                        body3 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":[7,8,20],"room":[]}}'
+                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body3, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name, 'Page': '1', 'Lang': 'zh', 'LangBody': '[7,8,20]'})
                         self.ids_seen.add(hotelId)
                     break
         for i in range(2, totalPage + 1):
@@ -136,12 +145,17 @@ class YelpSpider(scrapy.Spider):
                     else:
                         print('######################################### id : Name: %s : %s' %(hotelId, Name))
                         DetailLink = 'https://www.agoda.com' + (hotel['HotelUrl']).split('?')[0]
-                        self.db.insert_hotel(hotelId, Name, DetailLink, self.crawl_till_date)
+                        if INSERTDB:
+                            self.db.insert_hotel(hotelId, Name, DetailLink, self.crawl_till_date)
                         # payload = {"hotelId": str(hotelId),"page":'1',"pageSize":'1',"sorting":'1',"filters":{"language":[],"room":[]}}
                         # yield{'hotelId': hotelId}
-                        body = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":1,"sorting":1,"filters":{"language":' + LANGUAGE + ',"room":[]}}'
                         header = self.getJson(HEADER_REVIEW, '\n', ':')
-                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, dont_filter=True, callback=self.parseCommentNum, method='POST', meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name})
+                        body1 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":[1],"room":[]}}'
+                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body1, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name, 'Page': '1', 'Lang': 'en', 'LangBody': '[1]'})
+                        body2 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":[2],"room":[]}}'
+                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body2, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name, 'Page': '1', 'Lang': 'fr', 'LangBody': '[2]'})
+                        body3 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":[7,8,20],"room":[]}}'
+                        yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body3, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name, 'Page': '1', 'Lang': 'zh', 'LangBody': '[7,8,20]'})
                         self.ids_seen.add(hotelId)
                     break
     def parseCommentNum(self, response):
@@ -179,10 +193,12 @@ class YelpSpider(scrapy.Spider):
                         
     def parseComment(self, response):
         # inspect_response(response, self)
+        Lang = response.meta['Lang']
         Body = response.css('div#hotelreview-detail-item')
-
+        CheckReviewNum = False
         Reviews = Body.css('div.review-comment-items div.individual-review-item') 
         for re in Reviews:
+            CheckReviewNum = True
             reId = re.css('::attr(data-id)').extract()
             if len(reId) > 0:
                 reId = reId[0]
@@ -284,16 +300,6 @@ class YelpSpider(scrapy.Spider):
                 ReviewText += ReviewText1
             else:
                 ReviewText1 = ''
-            
-            Language = ''
-            try:
-                if(ReviewText != ''):
-                    Language = detect(PositiveReview + NegativeReview + ReviewText1)
-                    if Language == 'ko':
-                        Language = 'zh-tw'
-                pass
-            except Exception as e:
-                print('Can not detect language!')
 
             hotelId = response.meta['hotelId']
             DetailLink = response.meta['DetailLink']
@@ -306,7 +312,7 @@ class YelpSpider(scrapy.Spider):
             it = ItemLoader(item=AgodaReviewItem())
             it.add_value('title', ReviewTitle)
             it.add_value('text', ReviewText)
-            it.add_value('detected_lang', Language)
+            it.add_value('detected_lang', Lang)
             it.add_value('published_date_1', str(ReviewDateParse))
             it.add_value('published_date', dateTimeStamp)
             it.add_value('product_id', hotelId)
@@ -321,6 +327,17 @@ class YelpSpider(scrapy.Spider):
             it.add_value('data_provider_id', providerId)
             it.add_value('product_name', Name)
             it.add_value('source_sentiment', SourceSentiment)
-            self.db.insert_review(it)
+            if INSERTDB:
+                self.db.insert_review(it)
             yield it.load_item()
             self.ids_rev.add(rev)
+        if (CheckReviewNum):
+            Page = int(response.meta['Page'])
+            LangBody = response.meta['LangBody']
+            Page += 1
+            print('Checking for page %s' %Page)
+            body = '{"hotelId":'+str(hotelId)+',"page":'+str(Page)+',"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":' + LangBody + ',"room":[]}}'
+            header = self.getJson(HEADER_REVIEW, '\n', ':')
+            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body3, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'page':i, 'DetailLink': DetailLink, 'providerId': providerId, 'Name': Name, 'Page': Page, 'Lang': Lang, 'LangBody': LangBody}) 
+        else:
+            print('End Page')

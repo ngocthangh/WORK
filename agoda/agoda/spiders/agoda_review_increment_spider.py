@@ -35,7 +35,7 @@ Accept-Language: en-US,en;q=0.5
 Accept-Encoding: gzip, deflate
 Content-Type: application/json; charset=utf-8
 X-Requested-With: XMLHttpRequest"""
-class YelpSpider(scrapy.Spider):
+class AgodaSpider(scrapy.Spider):
     name = "agodaincrement"
     allowed_domains = ["agoda.com"]
     start_urls = [
