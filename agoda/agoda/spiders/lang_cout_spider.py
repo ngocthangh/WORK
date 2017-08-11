@@ -21,57 +21,57 @@ class YelpSpider(scrapy.Spider):
     ]
     handle_httpstatus_list = [503]
     def parse(self, response):
-        with open('AgodaReviewFinal_5.csv') as csvfile:
+        with open('AgodaReviewFinal_6.csv') as csvfile:
             texts = csv.reader(csvfile, quotechar='"', delimiter=',',
                          quoting=csv.QUOTE_ALL, skipinitialspace=True)
-            # EN = 0
-            # FR = 0
-            # ZH = 0
-            # for text in texts:
-            #     lang = text[15]
-            #     country = text[4]
-            #     print('Lang: %s' % lang)
-            #     if (lang == 'en' or lang == 'so' or lang == 'it' or lang == 'sk' or lang == 'pl'):
-            #         EN += 1
-            #     elif (lang == 'fr'):
-            #         FR += 1
-            #     elif (lang == 'zh-cn' or lang == 'zh-tw' or lang == 'ko') :
-            #         ZH += 1
-            #     elif (lang == 'ro'):
-            #         if country == 'China' or country == 'Taiwan':
-            #             ZH += 1
-            #         else:
-            #             EN += 1
-            # ALL = EN + FR + ZH
-            # print ('############################################################################################')
-            # print('ALL: %s' %ALL)
-            # print ('EN: %s : %s' %(EN, 100*(float(EN/ALL))))
-            # print ('FR: %s : %s' %(FR, 100*(float(FR/ALL))))
-            # print ('ZH: %s : %s' %(ZH, 100*(float(ZH/ALL))))
-            
-            MAX_TIME = 0
-            MIN_TIME = 0
-            i = 0
+            EN = 0
+            FR = 0
+            ZH = 0
             for text in texts:
-                i += 1
-                if i == 1:
-                    continue
-                if i == 2:
-                    MAX_TIME = int(text[10].split('.')[0])
-                    MIN_TIME = int(text[10].split('.')[0])
-                    continue
-                print(i)
-                timestamp = int(text[10].split('.')[0])
-                if (timestamp > MAX_TIME):
-                    MAX_TIME = timestamp
-                if (timestamp < MIN_TIME):
-                    MIN_TIME = timestamp
+                lang = text[12]
+                # country = text[4]
+                print('Lang: %s' % lang)
+                if (lang == 'en'):
+                    EN += 1
+                elif (lang == 'fr'):
+                    FR += 1
+                elif (lang == 'zh') :
+                    ZH += 1
+                # elif (lang == 'ro'):
+                #     if country == 'China' or country == 'Taiwan':
+                #         ZH += 1
+                #     else:
+                #         EN += 1
+            ALL = EN + FR + ZH
+            print ('############################################################################################')
+            print('ALL: %s' %ALL)
+            print ('EN: %s : %s' %(EN, 100*(float(EN/ALL))))
+            print ('FR: %s : %s' %(FR, 100*(float(FR/ALL))))
+            print ('ZH: %s : %s' %(ZH, 100*(float(ZH/ALL))))
+            
+            # MAX_TIME = 0
+            # MIN_TIME = 0
+            # i = 0
+            # for text in texts:
+            #     i += 1
+            #     if i == 1:
+            #         continue
+            #     if i == 2:
+            #         MAX_TIME = int(text[10].split('.')[0])
+            #         MIN_TIME = int(text[10].split('.')[0])
+            #         continue
+            #     print(i)
+            #     timestamp = int(text[10].split('.')[0])
+            #     if (timestamp > MAX_TIME):
+            #         MAX_TIME = timestamp
+            #     if (timestamp < MIN_TIME):
+            #         MIN_TIME = timestamp
 
-            TOTAL = MAX_TIME - MIN_TIME
-            print('MAX : %s' %MAX_TIME)
-            print('MIN : %s' %MIN_TIME)
-            print('TOTAL TIMESTAMP : %s' %TOTAL)
-            print('TOTAL DAY: %s' %(TOTAL/(3600*24)))
+            # TOTAL = MAX_TIME - MIN_TIME
+            # print('MAX : %s' %MAX_TIME)
+            # print('MIN : %s' %MIN_TIME)
+            # print('TOTAL TIMESTAMP : %s' %TOTAL)
+            # print('TOTAL DAY: %s' %(TOTAL/(3600*24)))
             
             # HotelId = set()
             # Review = set()
