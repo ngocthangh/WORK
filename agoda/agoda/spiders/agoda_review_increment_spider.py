@@ -15,6 +15,7 @@ import time
 from scrapy.loader import ItemLoader
 from agoda.items import AgodaReviewItem
 from queryMySQL import connectMySQL
+from ConfigurationManager import ConfigurationManager
 
 CONFIG = []
 REVIEW_PER_PAGE = 50
@@ -44,8 +45,49 @@ class AgodaSpider(scrapy.Spider):
     handle_httpstatus_list = [503]
 
     def __init__(self):
-        self.db = connectMySQL()
-        self.db.selectDB()
+        self.Config = ConfigurationManager()
+        self.REVIEW_PER_PAGE = self.Config.REVIEW_PER_PAGE
+        self.RATING_OUT_OF = self.Config.RATING_OUT_OF
+        self.BRANCH = self.Config.BRANCH
+        self.INSERTDB = self.Config.INSERTDB
+        self.LANGUAGE = self.Config.LANGUAGE
+        self.HEADER = self.Config.HEADER
+        self.HEADER_REVIEW = self.Config.HEADER_REVIEW
+
+        self.css_body_1 = self.Config.css_body_1
+        self.css_reviews_1_1 = self.Config.css_reviews_1_1
+
+        self.css_review_id_1_1_1 = self.Config.css_review_id_1_1_1
+        self.css_review_info_1_1_2 = self.Config.css_review_info_1_1_2
+        self.css_review_detail_1_1_3 = self.Config.css_review_detail_1_1_3
+
+        self.css_review_score_1_1_2_1 = self.Config.css_review_score_1_1_2_1 
+        self.css_reviewer_name_1_1_2_2 = self.Config.css_reviewer_name_1_1_2_2 
+        self.css_reviewer_nation_1_1_2_3 = self.Config.css_reviewer_nation_1_1_2_3
+        self.css_traveler_type_1_1_2_4 = self.Config.css_traveler_type_1_1_2_4
+        self.css_room_type_1_1_2_5 = self.Config.css_room_type_1_1_2_5
+        self.css_detail_stayed_1_1_2_6 = self.Config.css_detail_stayed_1_1_2_6
+
+        self.css_review_date_1_1_3_1 = self.Config.css_review_date_1_1_3_1
+        self.css_review_date_1_1_3_2 = self.Config.css_review_date_1_1_3_2
+        self.css_review_title_1_1_3_3 = self.Config.css_review_title_1_1_3_3
+        self.css_positive_review_1_1_3_4 = self.Config.css_positive_review_1_1_3_4
+        self.css_negative_review_1_1_3_5 = self.Config.css_negative_review_1_1_3_5
+        self.css_review_text_1_1_3_6 = self.Config.css_review_text_1_1_3_6
+
+        print(self.REVIEW_PER_PAGE)
+        print(self.RATING_OUT_OF)
+        for b in self.BRANCH:
+            print(b)
+        print(self.LANGUAGE)
+        print(self.INSERTDB)
+        print(self.HEADER)
+        print(self.HEADER_REVIEW)
+
+        if self.INSERTDB:
+            self.db = connectMySQL()
+            self.db.create_database()
+            self.db.create_table()
         self.crawl_till_date = date.today() - timedelta(1)
         self.ids_seen = set()
         self.ids_rev = set()
@@ -92,35 +134,25 @@ class AgodaSpider(scrapy.Spider):
             # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body3, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': '1', 'Lang': 'zh', 'LangBody': '[7,8,20]'})
             self.ids_seen.add(hotelId)
     
-    def parseComment(self, response):
+def parseComment(self, response):
         # inspect_response(response, self)
-        Lang = response.meta['Lang']
-        hotelId = response.meta['hotelId']
-        DetailLink = response.meta['DetailLink']
-        # providerId = response.meta['providerId']
-        Name = response.meta['Name']
-        DateCrawled = response.meta['DateCrawled']
-        print(Name)
-        Body = response.css('div#hotelreview-detail-item')
-        Reviews = Body.css('div.review-comment-items div.individual-review-item') 
-        CheckDate = False
-        CheckNumReview = False
-        for re in Reviews:
-            CheckNumReview = True
-            reId = re.css('::attr(data-id)').extract()
+        Body = response.css(self.css_body_1)
+        CheckReviewNum = False
+        Reviews = Body.css(self.css_reviews_1_1) 
+        for rev in Reviews:
+            CheckReviewNum = True
+            reId = rev.css(self.css_review_id_1_1_1).extract()
             if len(reId) > 0:
                 reId = reId[0]
             else:
                 reId = ''
 
-            reInfo = re.css('div.review-info')
-            reDetail = re.css('div.nopadding-right div.review-comment-bubble')
+            reInfo = rev.css(self.css_review_info_1_1_2)
+            reDetail = rev.css(self.css_review_detail_1_1_3)
 
-            dateCrawledParsed = parser.parse(DateCrawled)
-            dateCrawledParsed = date(dateCrawledParsed.year, dateCrawledParsed.month, dateCrawledParsed.day)
-            ReviewDate = reDetail.css('div.comment-date-only div.comment-date span::text').extract()
+            ReviewDate = reDetail.css(self.css_review_date_1_1_3_1).extract()
             if len(ReviewDate) <= 0:
-                ReviewDate = reDetail.css('div.comment-date-translate div.comment-date span::text').extract()
+                ReviewDate = reDetail.css(self.css_review_date_1_1_3_2).extract()
             if len(ReviewDate) > 0:
                 ReviewDate = ReviewDate[0].strip().split('Reviewed')
                 if len(ReviewDate) > 1:
@@ -140,19 +172,19 @@ class AgodaSpider(scrapy.Spider):
             dateTimeStamp = str(time.mktime(dateTimeStamp.timetuple()))
 
 
-            reScore = reInfo.css('div.comment-score span::text').extract()
+            reScore = reInfo.css(self.self.css_review_score_1_1_2_1).extract()
             if len(reScore) > 0:
                 reScore = reScore[0]
             else:
                 reScore = ''
 
-            reviewerName = reInfo.css('div[data-selenium="reviewer-name"] span strong::text').extract()
+            reviewerName = reInfo.css(self.css_reviewer_name_1_1_2_2).extract()
             if len(reviewerName) > 0:
                 reviewerName = reviewerName[0].strip()
             else:
                 reviewerName = ''
 
-            reviewerNation = reInfo.css('div[data-selenium="reviewer-name"] span::text').extract()
+            reviewerNation = reInfo.css(self.css_reviewer_nation_1_1_2_3).extract()
             if len(reviewerNation) > 1:
                 reviewerNation = reviewerNation[1].strip().split('from')
                 if len(reviewerNation) > 1:
@@ -162,26 +194,26 @@ class AgodaSpider(scrapy.Spider):
             else:
                 reviewerNation = ''
 
-            travelerType = reInfo.css('div[data-selenium="reviewer-traveller-type"] span::text').extract()
+            travelerType = reInfo.css(self.css_traveler_type_1_1_2_4).extract()
             if len(travelerType) > 0:
                 travelerType = travelerType[0].strip()
             else:
                 travelerType = ''
 
-            roomType = reInfo.css('div[data-selenium="review-roomtype"] span::text').extract()
+            roomType = reInfo.css(self.css_room_type_1_1_2_5).extract()
             if len(roomType) > 0:
                 roomType = roomType[0].strip()
             else:
                 roomType = ''
 
-            detailStayed = reInfo.css('div[data-selenium="reviewer-stay-detail"] span::text').extract()
+            detailStayed = reInfo.css(self.css_detail_stayed_1_1_2_6).extract()
             if len(detailStayed) > 0:
                 detailStayed = detailStayed[0].strip()
             else:
                 detailStayed = ''
 
             
-            ReviewTitle = reDetail.css('div.comment-title div.comment-title-text::text').extract()
+            ReviewTitle = reDetail.css(self.css_review_title_1_1_3_3).extract()
             if len(ReviewTitle) > 0:
                 ReviewTitle = ReviewTitle[0].strip()[:-1]
             else:
@@ -190,7 +222,7 @@ class AgodaSpider(scrapy.Spider):
             SourceSentiment = ''
             ReviewText = ''
             PositiveReview = ''
-            CommentReview = reDetail.css('div.comment-icon[data-selenium="positive-comment"] span::text').extract()
+            CommentReview = reDetail.css(self.css_positive_review_1_1_3_4).extract()
             if len(CommentReview) > 0:
                 PositiveReview = CommentReview[0].strip()
                 ReviewText += PositiveReview
@@ -198,7 +230,7 @@ class AgodaSpider(scrapy.Spider):
                     SourceSentiment += 'positive'
             
             NegativeReview = ''
-            CommentReview = reDetail.css('div.comment-icon[data-selenium="negative-comment"] span::text').extract()
+            CommentReview = reDetail.css(self.css_negative_review_1_1_3_5).extract()
             if len(CommentReview) > 0:
                 NegativeReview = CommentReview[0].strip()
                 if ReviewText != '':
@@ -210,7 +242,7 @@ class AgodaSpider(scrapy.Spider):
                     else:
                         SourceSentiment = ''
 
-            ReviewText1 = reDetail.css('div.comment-text span::text').extract()
+            ReviewText1 = reDetail.css(self.css_review_text_1_1_3_6).extract()
             if len(ReviewText1) > 0:
                 ReviewText1 = ReviewText1[0].strip()
                 if ReviewText != '':
@@ -219,9 +251,15 @@ class AgodaSpider(scrapy.Spider):
             else:
                 ReviewText1 = ''
 
+            Language = langid.classify(ReviewText)[0]
+
+            hotelId = response.meta['hotelId']
+            DetailLink = response.meta['DetailLink']
+            Name = response.meta['Name']
+            ReviewText = re.sub(r'[\x00-\x1F]+', ' ', ReviewText.replace('\n', '. ').replace('..', '.').replace('  ', ' '))
             rev = reviewerName + reviewerNation + hotelId + dateTimeStamp + reScore + travelerType + roomType + detailStayed + ReviewTitle
             if rev in self.ids_rev:
-                print('Duplicate Review')
+                print('Duplicate Review for: %s' %rev)
                 continue
             self.ids_rev.add(rev)
             it = ItemLoader(item=AgodaReviewItem())
@@ -232,7 +270,7 @@ class AgodaSpider(scrapy.Spider):
             it.add_value('date_publish_timestamp', dateTimeStamp)
             it.add_value('product_id', hotelId)
             it.add_value('review_score', reScore)
-            it.add_value('rating_out_of', RATING_OUT_OF)
+            it.add_value('rating_out_of', self.RATING_OUT_OF)
             it.add_value('author', reviewerName)
             it.add_value('country', reviewerNation)
             it.add_value('type_of_trip', travelerType)
@@ -242,16 +280,16 @@ class AgodaSpider(scrapy.Spider):
             # it.add_value('data_provider_id', providerId)
             it.add_value('product_name', Name)
             it.add_value('source_sentiment', SourceSentiment)
-            # self.db.insert_review(it)
+            if self.INSERTDB:
+                self.db.insert_review(it)
             yield it.load_item()
             
         if (CheckReviewNum):
             Page = int(response.meta['Page'])
-            LangBody = response.meta['LangBody']
             Page += 1
             print('Checking for page %s' %Page)
-            body = '{"hotelId":'+str(hotelId)+',"page":'+str(Page)+',"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":' + LangBody + ',"room":[]}}'
-            header = self.getJson(HEADER_REVIEW, '\n', ':')
-            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': Page, 'Lang': Lang, 'LangBody': LangBody}) 
+            body = '{"hotelId":'+str(hotelId)+',"page":'+str(Page)+',"pageSize":'+ self.REVIEW_PER_PAGE + ',"sorting":1,"filters":{"language":[],"room":[]}}'
+            header = self.getJson(self.HEADER_REVIEW, '\n', ':')
+            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': Page}) 
         else:
             print('End Page')
