@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from agoda.items import AgodaReviewItem
 import sys
 import string
-from ConfigurationManager import ConfigurationManager
+from agoda.spiders.ConfigurationManager import ConfigurationManager
 
 class connectMySQL:
     TABLES = {}

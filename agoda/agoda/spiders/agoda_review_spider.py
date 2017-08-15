@@ -2,7 +2,6 @@ import scrapy
 import json
 import csv
 import re
-from slugify import slugify
 from scrapy.shell import inspect_response
 from scrapy.http import FormRequest
 from dateutil import parser
@@ -15,8 +14,8 @@ import time
 import langid
 from scrapy.loader import ItemLoader
 from agoda.items import AgodaReviewItem
-from queryMySQL import connectMySQL
-from ConfigurationManager import ConfigurationManager
+from agoda.spiders.queryMySQL import connectMySQL
+from agoda.spiders.ConfigurationManager import ConfigurationManager
 
 
 class AgodaSpider(scrapy.Spider):

@@ -1,13 +1,14 @@
-import ConfigParser, os
+import configparser, os
 import json
-from BaseObject import baseConfig
+from agoda.spiders.BaseObject import baseConfig
 
 SOURCE_AGODA = 'agoda.com'
 
-class ConfigurationManager():
+class ConfigurationManager(baseConfig):
 	def __init__(self):
-		self.config = ConfigParser.ConfigParser()
-		self.config.read('agoda/spiders/config.cfg')
+		super().__init__()
+		# self.config = configparser.ConfigParser()
+		# self.config.read('agoda/spiders/config.cfg')
 		self.RATING_OUT_OF = self.config.get(SOURCE_AGODA, 'RATING_OUT_OF')
 		self.INSERTDB = self.config.getboolean(SOURCE_AGODA, 'INSERTDB')
 		self.BRANCH = json.loads(self.config.get(SOURCE_AGODA, 'BRANCH'))

@@ -1,8 +1,8 @@
-import ConfigParser, os
+import configparser, os
 
 class baseConfig:
     def __init__(self):
-        self.config = ConfigParser.ConfigParser()
+        self.config = configparser.ConfigParser()
         self.config.read('agoda/spiders/config.cfg')
         self.branch_name = self.config['branch_name']
         # self.constant = self.config['constant']['constant1']

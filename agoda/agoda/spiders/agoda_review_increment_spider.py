@@ -2,7 +2,6 @@ import scrapy
 import json
 import csv
 import re
-from slugify import slugify
 from scrapy.shell import inspect_response
 from scrapy.http import FormRequest
 from dateutil import parser
@@ -14,28 +13,10 @@ from scrapy.selector import Selector
 import time
 from scrapy.loader import ItemLoader
 from agoda.items import AgodaReviewItem
-from queryMySQL import connectMySQL
-from ConfigurationManager import ConfigurationManager
+from agoda.spiders.queryMySQL import connectMySQL
+from agoda.spiders.ConfigurationManager import ConfigurationManager
 
-CONFIG = []
-REVIEW_PER_PAGE = 50
-RATING_OUT_OF = '10'
-BRANCH = ['Ascott', 'Citadines', 'Somerset']
-# BRANCH = ['Snow Lavender']
-# LANGUAGE = '[1,2,7,8,20]'
-LANGUAGE = '[]'
-HEADER = """Accept: application/json, text/javascript, */*; q=0.01
-Accept-Language: vi-VN,vi;q=0.8,en-US;q=0.5,en;q=0.3
-Accept-Encoding: gzip, deflate, br
-Content-Type: application/x-www-form-urlencoded; charset=UTF-8
-X-Requested-With: XMLHttpRequest"""
-HEADER_REVIEW = """Host: www.agoda.com
-User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:43.0) Gecko/20100101 Firefox/43.0
-Accept: text/html, */*; q=0.01
-Accept-Language: en-US,en;q=0.5
-Accept-Encoding: gzip, deflate
-Content-Type: application/json; charset=utf-8
-X-Requested-With: XMLHttpRequest"""
+
 class AgodaSpider(scrapy.Spider):
     name = "agodaincrement"
     allowed_domains = ["agoda.com"]
