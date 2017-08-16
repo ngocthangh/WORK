@@ -12,10 +12,11 @@ from scrapy.http import TextResponse
 from scrapy.selector import Selector
 import time
 import langid
+from datetime import date, timedelta
 from scrapy.loader import ItemLoader
 from agoda.items import AgodaReviewItem
 from agoda.spiders.queryMySQL import connectMySQL
-from agoda.spiders.ConfigurationManager import ConfigurationManager
+from agoda.spiders.ConfigurationManager import agodaConfig
 
 
 class AgodaSpider(scrapy.Spider):
@@ -32,13 +33,14 @@ class AgodaSpider(scrapy.Spider):
     handle_httpstatus_list = [503]
 
     def __init__(self):
-        self.Config = ConfigurationManager()
+        self.Config = agodaConfig()
         self.REVIEW_PER_PAGE = self.Config.REVIEW_PER_PAGE
         self.RATING_OUT_OF = self.Config.RATING_OUT_OF
         self.BRANCH = self.Config.BRANCH
         self.INSERTDB = self.Config.INSERTDB
         self.LANGUAGE = self.Config.LANGUAGE
         self.HEADER = self.Config.HEADER
+        self.DATA = self.Config.DATA
         self.HEADER_REVIEW = self.Config.HEADER_REVIEW
 
         self.css_body_1 = self.Config.css_body_1
@@ -69,6 +71,7 @@ class AgodaSpider(scrapy.Spider):
         print(self.LANGUAGE)
         print(self.INSERTDB)
         print(self.HEADER)
+        print(self.DATA)
         print(self.HEADER_REVIEW)
 
         if self.INSERTDB:
@@ -76,8 +79,11 @@ class AgodaSpider(scrapy.Spider):
             self.db.create_database()
             self.db.create_table()
         self.crawl_till_date = date.today() - timedelta(1)
+        self.checkin_date = str(date(date.today().year,12,20)) if date(date.today().year,12,20) > date.today() else str(date(date.today().year,12,20) + timedelta(30))
         self.ids_seen = set()
         self.ids_rev = set()
+        print(str(self.checkin_date))
+
     def parseTest(self, response):
         text = response.css('div#searchlist-header h1::text').extract_first().strip()
         if '0 available properties' not in text:
@@ -110,7 +116,7 @@ class AgodaSpider(scrapy.Spider):
                     idSearch = str(city[0])
                     header = self.getJson(self.HEADER, '\n', ':')
                     # data0 = "SearchType=1&CityId=%s&PageNumber=1&PageSize=45&SortType=0&CultureInfo=en-US&HasFilter=false&Adults=1&Children=0&Rooms=1&CheckIn=2017-07-29&LengthOfStay=1&ChildAgesStr=" %city[1]
-                    data1 = "SearchType=1&ObjectID=0&PlatformID=1001&CityId=%s&PageNumber=1&PageSize=45&SortType=0&IsSortChanged=false&SortByAsd=false&ReviewTravelerType=0&IsAllowYesterdaySearch=false&CultureInfo=en-US&UnavailableHotelId=0&Adults=1&Children=0&Rooms=1&LengthOfStay=1&ChildAgesStr=&ExtraText=&IsDateless=false" %idSearch
+                    data1 =  self.DATA.replace('CityId_Input',idSearch).replace('CheckIn_Input', str(self.checkin_date))
                     formdata = self.getJson(data1, '&', '=')
                     yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', headers = header, formdata = formdata, dont_filter=True, callback=self.parseListHotelPage1, method='POST', meta = {'idSearch': idSearch})
 
@@ -249,7 +255,7 @@ class AgodaSpider(scrapy.Spider):
             dateTimeStamp = str(time.mktime(dateTimeStamp.timetuple()))
 
 
-            reScore = reInfo.css(self.self.css_review_score_1_1_2_1).extract()
+            reScore = reInfo.css(self.css_review_score_1_1_2_1).extract()
             if len(reScore) > 0:
                 reScore = reScore[0]
             else:

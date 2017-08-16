@@ -3,8 +3,9 @@ import json
 from agoda.spiders.BaseObject import baseConfig
 
 SOURCE_AGODA = 'agoda.com'
+SOURCE_CTRIP = 'ctrip.com'
 
-class ConfigurationManager(baseConfig):
+class agodaConfig(baseConfig):
 	def __init__(self):
 		super().__init__()
 		# self.config = configparser.ConfigParser()
@@ -15,6 +16,7 @@ class ConfigurationManager(baseConfig):
 		self.LANGUAGE = self.config.get(SOURCE_AGODA, 'LANGUAGE')
 		self.REVIEW_PER_PAGE = self.config.get(SOURCE_AGODA, 'REVIEW_PER_PAGE')
 		self.HEADER = self.config.get(SOURCE_AGODA, 'HEADER')
+		self.DATA = self.config.get(SOURCE_AGODA, 'DATA')
 		self.HEADER_REVIEW = self.config.get(SOURCE_AGODA, 'HEADER_REVIEW')
 		self.DB_NAME = self.config[SOURCE_AGODA]['DB_NAME']
 
@@ -38,6 +40,31 @@ class ConfigurationManager(baseConfig):
 		self.css_positive_review_1_1_3_4 = self.config[SOURCE_AGODA]['css_positive_review_1_1_3_4'] 
 		self.css_negative_review_1_1_3_5 = self.config[SOURCE_AGODA]['css_negative_review_1_1_3_5'] 
 		self.css_review_text_1_1_3_6 = self.config[SOURCE_AGODA]['css_review_text_1_1_3_6'] 
+
+class ctripConfig(baseConfig):
+	def __init__(self):
+		super().__init__()
+		# self.config = configparser.ConfigParser()
+		# self.config.read('agoda/spiders/config.cfg')
+		self.RATING_OUT_OF = self.config.get(SOURCE_CTRIP, 'RATING_OUT_OF')
+		self.INSERTDB = self.config.getboolean(SOURCE_CTRIP, 'INSERTDB')
+		self.BRANCH = json.loads(self.config.get(SOURCE_CTRIP, 'BRANCH'))
+		self.LANGUAGE = self.config.get(SOURCE_CTRIP, 'LANGUAGE')
+		self.REVIEW_PER_PAGE = self.config.get(SOURCE_CTRIP, 'REVIEW_PER_PAGE')
+		self.HEADER = self.config.get(SOURCE_CTRIP, 'HEADER')
+		self.BODY = self.config.get(SOURCE_CTRIP, 'BODY')
+		self.HEADER_REVIEW = self.config.get(SOURCE_CTRIP, 'HEADER_REVIEW')
+		self.DB_NAME = self.config[SOURCE_CTRIP]['DB_NAME']
+
+		self.css_review_items_1 = self.config[SOURCE_CTRIP]['css_review_items_1'] 
+		
+		self.css_review_info_1_1 = self.config[SOURCE_CTRIP]['css_review_info_1_1'] 
+		self.css_reviewer_name_1_1_1 = self.config[SOURCE_CTRIP]['css_reviewer_name_1_1_1'] 
+		self.css_review_date_1_1_2 = self.config[SOURCE_CTRIP]['css_review_date_1_1_2'] 
+		
+		self.css_review_info_1_2 = self.config[SOURCE_CTRIP]['css_review_info_1_2'] 
+		self.css_rev_score_1_2_1 = self.config[SOURCE_CTRIP]['css_rev_score_1_2_1'] 
+		self.css_review_text_1_2_2 = self.config[SOURCE_CTRIP]['css_review_text_1_2_2'] 
 
 
 	def test(self):

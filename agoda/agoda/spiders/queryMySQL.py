@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from agoda.items import AgodaReviewItem
 import sys
 import string
-from agoda.spiders.ConfigurationManager import ConfigurationManager
+from agoda.spiders.ConfigurationManager import agodaConfig
 
 class connectMySQL:
     TABLES = {}
@@ -50,7 +50,7 @@ class connectMySQL:
         ") ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_general_ci")
     
     def __init__(self):
-        self.Config = ConfigurationManager()
+        self.Config = agodaConfig()
         self.DB_NAME = self.Config.DB_NAME
         config = {
             'user': 'root',

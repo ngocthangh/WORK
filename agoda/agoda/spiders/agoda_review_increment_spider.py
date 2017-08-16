@@ -11,10 +11,11 @@ from langdetect import detect
 from scrapy.http import TextResponse
 from scrapy.selector import Selector
 import time
+import langid
 from scrapy.loader import ItemLoader
 from agoda.items import AgodaReviewItem
 from agoda.spiders.queryMySQL import connectMySQL
-from agoda.spiders.ConfigurationManager import ConfigurationManager
+from agoda.spiders.ConfigurationManager import agodaConfig
 
 
 class AgodaSpider(scrapy.Spider):
@@ -26,13 +27,14 @@ class AgodaSpider(scrapy.Spider):
     handle_httpstatus_list = [503]
 
     def __init__(self):
-        self.Config = ConfigurationManager()
+        self.Config = agodaConfig()
         self.REVIEW_PER_PAGE = self.Config.REVIEW_PER_PAGE
         self.RATING_OUT_OF = self.Config.RATING_OUT_OF
         self.BRANCH = self.Config.BRANCH
         self.INSERTDB = self.Config.INSERTDB
         self.LANGUAGE = self.Config.LANGUAGE
         self.HEADER = self.Config.HEADER
+        self.DATA = self.Config.DATA
         self.HEADER_REVIEW = self.Config.HEADER_REVIEW
 
         self.css_body_1 = self.Config.css_body_1
@@ -65,10 +67,10 @@ class AgodaSpider(scrapy.Spider):
         print(self.HEADER)
         print(self.HEADER_REVIEW)
 
-        if self.INSERTDB:
-            self.db = connectMySQL()
-            self.db.create_database()
-            self.db.create_table()
+        self.db = connectMySQL()
+        self.db.create_database()
+        # if self.INSERTDB:
+        #     self.db.create_table()
         self.crawl_till_date = date.today() - timedelta(1)
         self.ids_seen = set()
         self.ids_rev = set()
@@ -94,11 +96,11 @@ class AgodaSpider(scrapy.Spider):
         ListHotels = self.db.query_hotel()
         i = 0
         for hotel in ListHotels:
-            # i += 1
-            # if i < 3:
-            #     continue
-            # if i > 3:
-            #     break
+            i += 1
+            if i < 2:
+                continue
+            if i > 2:
+                break
             hotelId = (hotel[0])
             Name = (hotel[1])
             DetailLink = (hotel[2])
@@ -106,17 +108,21 @@ class AgodaSpider(scrapy.Spider):
             if(DateCrawled == self.crawl_till_date):
                 continue
             print('###########Incrementing for hotel Id: %s from date %s to %s' %(hotelId, str(DateCrawled), self.crawl_till_date))
-            header = self.getJson(HEADER_REVIEW, '\n', ':')
-            body1 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":[1],"room":[]}}'
-            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body1, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': '1', 'Lang': 'en', 'LangBody': '[1]'})
+            header = self.getJson(self.HEADER_REVIEW, '\n', ':')
+            body1 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+ self.REVIEW_PER_PAGE +',"sorting":1,"filters":{"language":[],"room":[]}}'
+            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body1, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': '1', 'DateCrawled' : str(DateCrawled)})
             # body2 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":[2],"room":[]}}'
             # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body2, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': '1', 'Lang': 'fr', 'LangBody': '[2]'})
             # body3 = '{"hotelId":'+str(hotelId)+',"page":1,"pageSize":'+str(REVIEW_PER_PAGE)+',"sorting":1,"filters":{"language":[7,8,20],"room":[]}}'
             # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body3, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': '1', 'Lang': 'zh', 'LangBody': '[7,8,20]'})
             self.ids_seen.add(hotelId)
     
-def parseComment(self, response):
+    def parseComment(self, response):
         # inspect_response(response, self)
+        hotelId = response.meta['hotelId']
+        DetailLink = response.meta['DetailLink']
+        Name = response.meta['Name']
+        DateCrawled = parser.parse(str(response.meta['DateCrawled']))
         Body = response.css(self.css_body_1)
         CheckReviewNum = False
         Reviews = Body.css(self.css_reviews_1_1) 
@@ -144,8 +150,9 @@ def parseComment(self, response):
             dateTimeStamp = parser.parse(ReviewDate)
             ReviewDateParse = date(dateTimeStamp.year, dateTimeStamp.month, dateTimeStamp.day)
             
+            dateCrawledParsed = date(DateCrawled.year, DateCrawled.month, DateCrawled.day)
             if(ReviewDateParse <= dateCrawledParsed):
-                print('All Crawled')
+                # print('Skipping crawled review.....')
                 continue
             CheckDate = True
             if (ReviewDateParse > self.crawl_till_date):
@@ -153,7 +160,7 @@ def parseComment(self, response):
             dateTimeStamp = str(time.mktime(dateTimeStamp.timetuple()))
 
 
-            reScore = reInfo.css(self.self.css_review_score_1_1_2_1).extract()
+            reScore = reInfo.css(self.css_review_score_1_1_2_1).extract()
             if len(reScore) > 0:
                 reScore = reScore[0]
             else:
@@ -233,10 +240,7 @@ def parseComment(self, response):
                 ReviewText1 = ''
 
             Language = langid.classify(ReviewText)[0]
-
-            hotelId = response.meta['hotelId']
-            DetailLink = response.meta['DetailLink']
-            Name = response.meta['Name']
+     
             ReviewText = re.sub(r'[\x00-\x1F]+', ' ', ReviewText.replace('\n', '. ').replace('..', '.').replace('  ', ' '))
             rev = reviewerName + reviewerNation + hotelId + dateTimeStamp + reScore + travelerType + roomType + detailStayed + ReviewTitle
             if rev in self.ids_rev:
@@ -271,6 +275,6 @@ def parseComment(self, response):
             print('Checking for page %s' %Page)
             body = '{"hotelId":'+str(hotelId)+',"page":'+str(Page)+',"pageSize":'+ self.REVIEW_PER_PAGE + ',"sorting":1,"filters":{"language":[],"room":[]}}'
             header = self.getJson(self.HEADER_REVIEW, '\n', ':')
-            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': Page}) 
+            yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': Page, 'DateCrawled' : DateCrawled}) 
         else:
             print('End Page')
