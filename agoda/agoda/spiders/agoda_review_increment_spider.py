@@ -240,9 +240,12 @@ class AgodaSpider(scrapy.Spider):
                 ReviewText1 = ''
 
             Language = langid.classify(ReviewText)[0]
-     
-            ReviewText = re.sub(r'[\x00-\x1F]+', ' ', ReviewText.replace('\n', '. ').replace('..', '.').replace('  ', ' '))
-            rev = reviewerName + reviewerNation + hotelId + dateTimeStamp + reScore + travelerType + roomType + detailStayed + ReviewTitle
+
+            hotelId = response.meta['hotelId']
+            DetailLink = response.meta['DetailLink']
+            Name = response.meta['Name']
+            ReviewText = re.sub(r'[\x00-\x1F]+', ' ', ReviewText.replace('\n', '. ').replace('\r', '. ').replace('..', '.').replace('  ', ' '))
+            rev = reviewerName + reviewerNation + hotelId + dateTimeStamp + reScore + travelerType + roomType + ReviewTitle + ReviewText[:10] + ReviewText[-10:] 
             if rev in self.ids_rev:
                 print('Duplicate Review for: %s' %rev)
                 continue

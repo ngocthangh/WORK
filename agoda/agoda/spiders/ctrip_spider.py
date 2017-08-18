@@ -3,7 +3,7 @@ import json
 import csv
 import re
 from slugify import slugify
-# from scrapy.shell import inspect_response
+from scrapy.shell import inspect_response
 from scrapy.http import FormRequest
 from dateutil import parser
 import time
@@ -54,7 +54,7 @@ class CtripSpider(scrapy.Spider):
         print(self.LANGUAGE)
         print(self.INSERTDB)
         print(self.HEADER)
-        print(self.DATA)
+        print(self.BODY)
         print(self.HEADER_REVIEW)
 
         if self.INSERTDB:
@@ -85,12 +85,12 @@ class CtripSpider(scrapy.Spider):
         return json.loads(data)
     def parse(self, response):
         with open('citydata/test1.csv') as csvfile:
-            cities = csv.reader(csvfile, quotechar='"', delimiter=',',
+            cities = csv.reader(csvfile, quotechar='\"', delimiter=',',
                          quoting=csv.QUOTE_ALL, skipinitialspace=True)
             for city in cities:
                 if len(city) > 0:
                     idSearch = str(city[0])
-                    header = self.getJson(HEADER1, '\n', ':')
+                    header = self.getJson(self.HEADER, '\n', ':')
                     body =  self.BODY.replace('city_Input', idSearch)
                     yield FormRequest('http://english.ctrip.com/Hotels/list/HotelJsonResult?label=A4WaYPRV2kG1FafH_vBD6w&isScrolling=true', headers = header, body = body, dont_filter=True, callback=self.parseListHotelPage1, method='POST', meta = {'idSearch': idSearch})
 
@@ -105,12 +105,12 @@ class CtripSpider(scrapy.Spider):
             totalPage += 1
         cityId = response.meta['idSearch']
         listHotel = Result['HotelResultModel']
-        print('-----------Get %s hotel' %str(totalHotel))
+        print('-----------Getting total %s hotels' %str(totalHotel))
         for hotel in listHotel:
             hotelId = hotel['hotelId']
             Name = hotel['hotelName']
             DetailLink = 'http:' + (hotel['hotelUrl']).split('?')[0]
-            for branch in BRANCH:
+            for branch in self.BRANCH:
                 if branch in Name:
                     if hotelId in self.ids_seen:
                         print("Duplicate item found: %s" % hotelId)
@@ -123,12 +123,12 @@ class CtripSpider(scrapy.Spider):
                         #         }
                         data = "hotelid=%s&PageNo=1&ReviewType=All&IsImageOnly=false&IsContentOnly=1&IsRecommend=false&ThemeVBId=0&BaseRoomType=&SelectedLabel=4" %hotelId
                         formdata = self.getJson(data, '&', '=')
-                        header = self.getJson(HEADER, '\n', ':')
-                        yield FormRequest('http://english.ctrip.com/hotels/Detail/GetReviewListHtmlV2', headers = header, formdata = formdata, dont_filter=True, callback=self.parseCommentNum, method='POST',meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name, 'Page': 1}) 
+                        header = self.getJson(self.HEADER_REVIEW, '\n', ':')
+                        yield FormRequest('http://english.ctrip.com/hotels/Detail/GetReviewListHtmlV2', headers = header, formdata = formdata, dont_filter=True, callback=self.parseComment, method='POST',meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name, 'Page': 1}) 
                         self.ids_seen.add(hotelId)
                     break
         for i in range(2, totalPage + 1):
-            header = self.getJson(HEADER1, '\n', ':')
+            header = self.getJson(self.HEADER, '\n', ':')
             body = 'city=%s&optionType=Intlcity&label=A4WaYPRV2kG1FafH_vBD6w&pageno=%s&hotelid=0&allianceid=0&sid=0' %(cityId, i)
             yield FormRequest('http://english.ctrip.com/Hotels/list/HotelJsonResult?label=A4WaYPRV2kG1FafH_vBD6w&isScrolling=true', headers = header, body = body, dont_filter=True, callback=self.parseListHotelPage2, method='POST', meta = {'idSearch': cityId, 'page': i})
             
@@ -148,7 +148,7 @@ class CtripSpider(scrapy.Spider):
             hotelId = hotel['hotelId']
             Name = hotel['hotelName']
             DetailLink = 'http:' + (hotel['hotelUrl']).split('?')[0]
-            for branch in BRANCH:
+            for branch in self.BRANCH:
                 if branch in Name:
                     if hotelId in self.ids_seen:
                         print("Duplicate item found: %s" % hotelId)
@@ -160,8 +160,8 @@ class CtripSpider(scrapy.Spider):
                         #         'name': Name,}
                         data = "hotelid=%s&PageNo=1&ReviewType=All&IsImageOnly=false&IsContentOnly=1&IsRecommend=false&ThemeVBId=0&BaseRoomType=&SelectedLabel=4" %hotelId
                         formdata = self.getJson(data, '&', '=')
-                        header = self.getJson(HEADER, '\n', ':')
-                        yield FormRequest('http://english.ctrip.com/hotels/Detail/GetReviewListHtmlV2', headers = header, formdata = formdata, dont_filter=True, callback=self.parseCommentNum, method='POST',meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name, 'Page': 1}) 
+                        header = self.getJson(self.HEADER_REVIEW, '\n', ':')
+                        yield FormRequest('http://english.ctrip.com/hotels/Detail/GetReviewListHtmlV2', headers = header, formdata = formdata, dont_filter=True, callback=self.parseComment, method='POST',meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name, 'Page': 1}) 
                         self.ids_seen.add(hotelId)
                     break
     def parseCommentNum(self, response):
@@ -191,7 +191,7 @@ class CtripSpider(scrapy.Spider):
             for i in range(1, totalPage + 1):
                 data = "hotelid=%s&PageNo=%s&ReviewType=All&IsImageOnly=false&IsContentOnly=1&IsRecommend=false&ThemeVBId=0&BaseRoomType=&SelectedLabel=4" %(hotelId, i)
                 formdata = self.getJson(data, '&', '=')
-                header = self.getJson(HEADER, '\n', ':')
+                header = self.getJson(self.HEADER_REVIEW, '\n', ':')
                 yield FormRequest('http://english.ctrip.com/hotels/Detail/GetReviewListHtmlV2', headers = header, formdata = formdata, dont_filter=True, callback=self.parseComment, method='POST',meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name}) 
 
 
@@ -199,10 +199,11 @@ class CtripSpider(scrapy.Spider):
         hotelId = response.meta['hotelId']
         DetailLink = response.meta['DetailLink']
         Name = response.meta['Name']
-        # reviewList = response.css('')
-        reviewItems = reviewList.css(self.css_review_items_1)
-    
+        CheckReviewNum = False
+        reviewItems = response.css(self.css_review_items_1)
+        print('Getting reviews on page ' + str(response.meta['Page']))
         for review in reviewItems:
+            CheckReviewNum = True
             reviewInfo = review.css(self.css_review_info_1_1)
             reviewerName = reviewInfo.css(self.css_reviewer_name_1_1_1).extract()
             if len(reviewerName) > 0:
@@ -288,9 +289,9 @@ class CtripSpider(scrapy.Spider):
             # if Language not in LANGUAGE:
             #     continue
 
-            rev = reviewerName + hotelId + dateTimeStamp + rev_score 
+            rev = reviewerName + hotelId + dateTimeStamp + rev_score + ReviewText[:20] + ReviewText[-20:]
             if rev in self.ids_rev:
-                print('Duplicate Review')
+                print('Duplicate Review: ' + rev)
                 continue
             self.ids_rev.add(rev)
             it = ItemLoader(item=CtripItem())
@@ -302,7 +303,7 @@ class CtripSpider(scrapy.Spider):
             it.add_value('published_date', dateTimeStamp)
             it.add_value('product_id', hotelId)
             it.add_value('rating', rev_score)
-            it.add_value('rating_outof', RATING_OUT_OF)
+            it.add_value('rating_outof', self.RATING_OUT_OF)
             it.add_value('author', reviewerName)
             it.add_value('country', 'unknown')
             # it.add_value('reviewer_group', travelerType)
@@ -313,4 +314,10 @@ class CtripSpider(scrapy.Spider):
             it.add_value('product_name', Name)
             # self.db.insert_review(it)
             yield it.load_item()
-            
+        if(CheckReviewNum):
+            Page = int(response.meta['Page'])
+            Page += 1
+            data = "hotelid=%s&PageNo=%s&ReviewType=All&IsImageOnly=false&IsContentOnly=1&IsRecommend=false&ThemeVBId=0&BaseRoomType=&SelectedLabel=4" %(hotelId, str(Page))
+            formdata = self.getJson(data, '&', '=')
+            header = self.getJson(self.HEADER_REVIEW, '\n', ':')
+            yield FormRequest('http://english.ctrip.com/hotels/Detail/GetReviewListHtmlV2', headers = header, formdata = formdata, dont_filter=True, callback=self.parseComment, method='POST',meta = {'hotelId':str(hotelId),'DetailLink':DetailLink, 'Name': Name, 'Page': Page}) 

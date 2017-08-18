@@ -82,6 +82,8 @@ class AgodaSpider(scrapy.Spider):
         self.checkin_date = str(date(date.today().year,12,20)) if date(date.today().year,12,20) > date.today() else str(date(date.today().year,12,20) + timedelta(30))
         self.ids_seen = set()
         self.ids_rev = set()
+        self.duplicate = 0
+        self.empty_rev = 0
         print(str(self.checkin_date))
 
     def parseTest(self, response):
@@ -101,7 +103,7 @@ class AgodaSpider(scrapy.Spider):
         data = data[:-1] + ' }'
         return json.loads(data)
     def parse(self, response):
-        with open('citydata/test.csv') as csvfile:
+        with open('citydata/CityFinal_1.csv') as csvfile:
             cities = csv.reader(csvfile, quotechar='"', delimiter=',',
                          quoting=csv.QUOTE_ALL, skipinitialspace=True)
             i = 0
@@ -119,7 +121,7 @@ class AgodaSpider(scrapy.Spider):
                     data1 =  self.DATA.replace('CityId_Input',idSearch).replace('CheckIn_Input', str(self.checkin_date))
                     formdata = self.getJson(data1, '&', '=')
                     yield FormRequest('https://www.agoda.com/api/en-us/Main/GetSearchResultList', headers = header, formdata = formdata, dont_filter=True, callback=self.parseListHotelPage1, method='POST', meta = {'idSearch': idSearch})
-
+        
     def parseListHotelPage1(self, response):
         # inspect_response(response, self)
         print('###########Searching for id: %s' %response.meta['idSearch'])
@@ -127,16 +129,19 @@ class AgodaSpider(scrapy.Spider):
         totalPage = Result['TotalPage']
         cityName = Result['CityName']
         page = Result['PageNumber']
+        TotalFilteredHotels = Result['TotalFilteredHotels']
         cityId = Result['SearchCriteria']['CityId']
         listHotel = Result['ResultList']
         if self.INSERTDB:
-            self.db.insert_city(cityId, cityName, 1)
-        print('-----------Get %s hotel' %str(len(listHotel)))
+            self.db.insert_city(cityId, cityName, 0)
+        print('-----------Getting %s hotel' %str(TotalFilteredHotels))
+        Check_active = False
         for hotel in listHotel:
             hotelId = hotel['HotelID']
             Name = hotel['EnglishHotelName']
             for branch in self.BRANCH:
                 if branch in Name:
+                    Check_active = True
                     if hotelId in self.ids_seen:
                         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Duplicate item found: %s" % hotelId)
                         break
@@ -155,6 +160,8 @@ class AgodaSpider(scrapy.Spider):
                         # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body3, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': '1', 'Lang': 'zh', 'LangBody': '[7,8,20]'})
                         self.ids_seen.add(hotelId)
                     break
+        if self.INSERTDB and Check_active:
+            self.db.update_city(cityId, 1)
         for i in range(2, totalPage + 1):
             header = self.getJson(self.HEADER, '\n', ':')
             data0 = "SearchType=1&CityId=%s&PageNumber=%s&PageSize=45&SortType=0&CultureInfo=en-US&HasFilter=false&Adults=1&Children=0&Rooms=1&CheckIn=2017-07-29&LengthOfStay=1&ChildAgesStr=" %(cityId, i)
@@ -165,11 +172,14 @@ class AgodaSpider(scrapy.Spider):
     def parseListHotelPage2(self, response):
         Result = json.loads(response.body)
         listHotel = Result['ResultList']
+        cityId = Result['SearchCriteria']['CityId']
+        Check_active = False
         for hotel in listHotel:
             hotelId = hotel['HotelID']
             Name = hotel['EnglishHotelName']
             for branch in self.BRANCH:
                 if branch in Name:
+                    Check_active = True
                     if hotelId in self.ids_seen:
                         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Duplicate item found: %s" % hotelId)
                         break
@@ -189,6 +199,8 @@ class AgodaSpider(scrapy.Spider):
                         # yield FormRequest('https://www.agoda.com/NewSite/en-us/Review/ReviewComments', body = body3, headers = header, callback=self.parseComment, method='POST', dont_filter=True, meta = {'hotelId':str(hotelId), 'DetailLink': DetailLink, 'Name': Name, 'Page': '1', 'Lang': 'zh', 'LangBody': '[7,8,20]'})
                         self.ids_seen.add(hotelId)
                     break
+        if self.INSERTDB and Check_active:
+            self.db.update_city(cityId, 1)
     # def parseCommentNum(self, response):
     #     # inspect_response(response, self)
     #     Bodys = response.css('div#hotelreview-detail-item')
@@ -339,10 +351,14 @@ class AgodaSpider(scrapy.Spider):
             hotelId = response.meta['hotelId']
             DetailLink = response.meta['DetailLink']
             Name = response.meta['Name']
-            ReviewText = re.sub(r'[\x00-\x1F]+', ' ', ReviewText.replace('\n', '. ').replace('..', '.').replace('  ', ' '))
-            rev = reviewerName + reviewerNation + hotelId + dateTimeStamp + reScore + travelerType + roomType + detailStayed + ReviewTitle
+            ReviewText = re.sub(r'[\x00-\x1F]+', ' ', ReviewText.replace('\n', '. ').replace('\r', '. ').replace('..', '.').replace('  ', ' '))
+            if ReviewText == '' and ReviewTitle == '':
+                self.empty_rev += 1
+                continue
+            rev = reviewerName + reviewerNation + hotelId + dateTimeStamp + reScore + travelerType + roomType + ReviewTitle[:50] + ReviewText[:20] + ReviewText[-20:]
             if rev in self.ids_rev:
-                print('Duplicate Review for: %s' %rev)
+                print('Duplicate Review')
+                self.duplicate += 1
                 continue
             self.ids_rev.add(rev)
             it = ItemLoader(item=AgodaReviewItem())
@@ -360,7 +376,7 @@ class AgodaSpider(scrapy.Spider):
             it.add_value('room_type', roomType)
             it.add_value('details_stay', detailStayed)
             it.add_value('link', DetailLink)
-            # it.add_value('data_provider_id', providerId)
+            it.add_value('data_provider_id', str(self.duplicate) + str(self.empty_rev))
             it.add_value('product_name', Name)
             it.add_value('source_sentiment', SourceSentiment)
             if self.INSERTDB:

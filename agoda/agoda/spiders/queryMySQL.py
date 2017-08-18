@@ -86,7 +86,7 @@ class connectMySQL:
             print(err)
             exit(1)
     def create_table(self):
-        for name, ddl in self.TABLES.iteritems():
+        for name, ddl in self.TABLES.items():
             try:
                 print("Creating table {}: ".format(name))
                 self.cursor.execute(ddl)
@@ -130,6 +130,15 @@ class connectMySQL:
             print(err)
         else:
             print("Insert City OK !!!")
+    def update_city(self, cityId, isactive):
+        upd_city = ("UPDATE city SET is_active = '%s' WHERE city_id = %s" %(isactive, cityId))
+        try:
+            self.cursor.execute(upd_city)
+            self.cnx.commit()
+        except mysql.connector.Error as err:
+            print(err)
+        else:
+            print("Update City OK")
     def insert_review(self, it):
         item = it.load_item()
         add_review = ("INSERT INTO review "
@@ -163,14 +172,14 @@ class connectMySQL:
             text = item['comment'][0].encode('utf-8')
             text_result = ''
             for t in text:
-                if t in string.printable:
-                    text_result += t
+                if str(t) in string.printable:
+                    text_result += str(t)
 
             title = item['title'][0].encode('utf-8')
             title_result = ''
             for t1 in title:
-                if t1 in string.printable:
-                    title_result += t1
+                if str(t1) in string.printable:
+                    title_result += str(t1)
             data_review = {
           'title': title_result,
           'comment': text_result,

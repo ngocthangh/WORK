@@ -4,7 +4,7 @@ from msvcrt import getch
 import csv
 import re
 from slugify import slugify
-# from scrapy.shell import inspect_response
+from scrapy.shell import inspect_response
 from scrapy.http import FormRequest
 from dateutil import parser
 import time
